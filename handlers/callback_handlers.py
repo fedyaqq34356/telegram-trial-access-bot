@@ -1,0 +1,39 @@
+from aiogram import Router, F
+from aiogram.types import CallbackQuery
+
+from database import Database
+from config import Config
+
+router = Router()
+
+@router.callback_query(F.data.startswith("approve_"))
+async def approve_user(callback: CallbackQuery, db: Database):
+    user_id = int(callback.data.split("_")[1])
+    db.update_status(user_id, "approved")
+    
+    await callback.message.edit_text(
+        f"{callback.message.text}\n\nПользователь оставлен"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("kick_"))
+async def kick_user(callback: CallbackQuery, db: Database, config: Config):
+    user_id = int(callback.data.split("_")[1])
+    
+    try:
+        await callback.bot.ban_chat_member(config.work_chat_id, user_id)
+        await callback.bot.unban_chat_member(config.work_chat_id, user_id)
+        await callback.bot.ban_chat_member(config.study_group_id, user_id)
+        await callback.bot.unban_chat_member(config.study_group_id, user_id)
+        
+        db.remove_user(user_id)
+        
+        await callback.message.edit_text(
+            f"{callback.message.text}\n\nПользователь удален"
+        )
+    except Exception as e:
+        await callback.message.edit_text(
+            f"{callback.message.text}\n\nОшибка: {str(e)}"
+        )
+    
+    await callback.answer()

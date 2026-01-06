@@ -6,6 +6,7 @@ def get_main_menu() -> ReplyKeyboardMarkup:
         [KeyboardButton(text="На пробном периоде")],
         [KeyboardButton(text="Проверка")],
         [KeyboardButton(text="Удалить участника")],
+        [KeyboardButton(text="Skip пробный период")],
         [KeyboardButton(text="Добавить администратора")],
         [KeyboardButton(text="Убрать администратора")],
         [KeyboardButton(text="Список администраторов")]

@@ -17,6 +17,15 @@ async def delete_user_prompt(message: Message, db: Database):
     user_modes[message.from_user.id] = "delete_user"
     await message.answer("Введите Telegram ID пользователя для удаления:")
 
+@router.message(F.text == "Skip пробный период")
+async def skip_trial_prompt(message: Message, db: Database):
+    if not db.is_admin(message.from_user.id):
+        await message.answer("У вас нет прав администратора")
+        return
+    
+    user_modes[message.from_user.id] = "skip_trial"
+    await message.answer("Введите Telegram ID пользователя для перехода в 'Оставлен':")
+
 @router.message(F.text == "Добавить администратора")
 async def add_admin_prompt(message: Message, db: Database):
     if not db.is_admin(message.from_user.id):
@@ -79,6 +88,15 @@ async def handle_user_input(message: Message, db: Database, config: Config):
                 await message.answer(f"Пользователь {user['name']} удален")
             except Exception as e:
                 await message.answer(f"Ошибка: {str(e)}")
+    
+    elif mode == "skip_trial":
+        user = db.get_user(target_id)
+        
+        if not user:
+            await message.answer("Пользователь не найден")
+        else:
+            db.update_status(target_id, "approved")
+            await message.answer(f"Пользователь {user['name']} переведен в 'Оставлен'")
     
     elif mode == "add_admin":
         db.add_admin(target_id)

@@ -48,9 +48,9 @@ def format_user_list_item(user, show_status: bool = True) -> str:
         if user['status'] == 'trial':
             minutes = minutes_remaining(user['trial_end_date'])
             time_str = format_time_remaining(minutes)
-            result += f" | {time_str}"
+            result += f" | 🟡 {time_str}"
         else:
-            result += " | Оставлен"
+            result += " | 🟢 Оставлен"
     
     return result
 

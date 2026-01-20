@@ -1,5 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message
+from aiogram.enums import ChatMemberStatus
 
 from database import Database
 from config import Config
@@ -79,13 +80,26 @@ async def handle_user_input(message: Message, db: Database, config: Config):
             await message.answer("Пользователь не найден")
         else:
             try:
-                await message.bot.ban_chat_member(config.work_chat_id, target_id)
-                await message.bot.unban_chat_member(config.work_chat_id, target_id)
-                await message.bot.ban_chat_member(config.study_group_id, target_id)
-                await message.bot.unban_chat_member(config.study_group_id, target_id)
+                work_member = await message.bot.get_chat_member(config.work_chat_id, target_id)
+                study_member = await message.bot.get_chat_member(config.study_group_id, target_id)
                 
-                db.remove_user(target_id)
-                await message.answer(f"Пользователь {user['name']} удален")
+                in_work = work_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+                in_study = study_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+                
+                if not in_work and not in_study:
+                    db.remove_user(target_id)
+                    await message.answer(f"Пользователь {user['name']} уже вышел из обоих чатов и удален из базы")
+                else:
+                    if in_work:
+                        await message.bot.ban_chat_member(config.work_chat_id, target_id)
+                        await message.bot.unban_chat_member(config.work_chat_id, target_id)
+                    
+                    if in_study:
+                        await message.bot.ban_chat_member(config.study_group_id, target_id)
+                        await message.bot.unban_chat_member(config.study_group_id, target_id)
+                    
+                    db.remove_user(target_id)
+                    await message.answer(f"Пользователь {user['name']} удален")
             except Exception as e:
                 await message.answer(f"Ошибка: {str(e)}")
     

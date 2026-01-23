@@ -1,5 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
+from aiogram.enums import ChatMemberStatus
 
 from database import Database
 from config import Config
@@ -21,10 +22,25 @@ async def kick_user(callback: CallbackQuery, db: Database, config: Config):
     user_id = int(callback.data.split("_")[1])
     
     try:
-        await callback.bot.ban_chat_member(config.work_chat_id, user_id)
-        await callback.bot.unban_chat_member(config.work_chat_id, user_id)
-        await callback.bot.ban_chat_member(config.study_group_id, user_id)
-        await callback.bot.unban_chat_member(config.study_group_id, user_id)
+        work_member = await callback.bot.get_chat_member(config.work_chat_id, user_id)
+        study_member = await callback.bot.get_chat_member(config.study_group_id, user_id)
+        
+        in_work = work_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+        in_study = study_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+        
+        if in_work:
+            try:
+                await callback.bot.ban_chat_member(config.work_chat_id, user_id)
+                await callback.bot.unban_chat_member(config.work_chat_id, user_id)
+            except:
+                pass
+        
+        if in_study:
+            try:
+                await callback.bot.ban_chat_member(config.study_group_id, user_id)
+                await callback.bot.unban_chat_member(config.study_group_id, user_id)
+            except:
+                pass
         
         db.remove_user(user_id)
         

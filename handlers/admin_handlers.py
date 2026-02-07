@@ -80,11 +80,17 @@ async def handle_user_input(message: Message, db: Database, config: Config):
             await message.answer("Пользователь не найден")
         else:
             try:
-                work_member = await message.bot.get_chat_member(config.work_chat_id, target_id)
-                study_member = await message.bot.get_chat_member(config.study_group_id, target_id)
+                try:
+                    work_member = await message.bot.get_chat_member(config.work_chat_id, target_id)
+                    in_work = work_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+                except:
+                    in_work = False
                 
-                in_work = work_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
-                in_study = study_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+                try:
+                    study_member = await message.bot.get_chat_member(config.study_group_id, target_id)
+                    in_study = study_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+                except:
+                    in_study = False
                 
                 if in_work:
                     try:

@@ -22,11 +22,17 @@ async def kick_user(callback: CallbackQuery, db: Database, config: Config):
     user_id = int(callback.data.split("_")[1])
     
     try:
-        work_member = await callback.bot.get_chat_member(config.work_chat_id, user_id)
-        study_member = await callback.bot.get_chat_member(config.study_group_id, user_id)
+        try:
+            work_member = await callback.bot.get_chat_member(config.work_chat_id, user_id)
+            in_work = work_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+        except:
+            in_work = False
         
-        in_work = work_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
-        in_study = study_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+        try:
+            study_member = await callback.bot.get_chat_member(config.study_group_id, user_id)
+            in_study = study_member.status not in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED)
+        except:
+            in_study = False
         
         if in_work:
             try:

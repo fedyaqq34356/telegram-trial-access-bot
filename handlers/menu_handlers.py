@@ -69,69 +69,80 @@ async def check_presence(message: Message, db: Database, config: Config):
     await message.answer("Начинаю проверку...")
     
     for user in users:
+        # Проверяем присутствие в рабочем чате
         try:
             work_member = await message.bot.get_chat_member(
                 config.work_chat_id, user["telegram_id"]
             )
-            study_member = await message.bot.get_chat_member(
-                config.study_group_id, user["telegram_id"]
-            )
-            
             in_work = work_member.status not in (
                 ChatMemberStatus.LEFT,
                 ChatMemberStatus.KICKED,
+            )
+        except Exception as e:
+            # Пользователь не найден в чате
+            print(f"Ошибка при проверке пользователя {user['telegram_id']} в рабочем чате: {e}")
+            in_work = False
+        
+        # Проверяем присутствие в обучающей группе
+        try:
+            study_member = await message.bot.get_chat_member(
+                config.study_group_id, user["telegram_id"]
             )
             in_study = study_member.status not in (
                 ChatMemberStatus.LEFT,
                 ChatMemberStatus.KICKED,
             )
-            
-            db.update_presence(user["telegram_id"], in_work, in_study)
-            
-            if in_study and not in_work:
-                try:
-                    await message.bot.ban_chat_member(
-                        config.study_group_id, user["telegram_id"]
-                    )
-                    await message.bot.unban_chat_member(
-                        config.study_group_id, user["telegram_id"]
-                    )
-                    
-                    text = (
-                        "Пользователь удален из обучающей группы (нет в рабочем чате)\n\n"
-                        f"{user['name']}\n"
-                        f"ID: {user['telegram_id']}\n"
-                        f"{format_username(user['username'])}"
-                    )
-                    
-                    await message.answer(text)
-                    db.remove_user(user["telegram_id"])
-                    found_issues = True
-                except Exception as e:
-                    await message.answer(
-                        f"Ошибка при удалении {user['telegram_id']}: {e}"
-                    )
-            elif not in_work or not in_study:
-                left_from = []
-                if not in_work:
-                    left_from.append("рабочего чата")
-                if not in_study:
-                    left_from.append("обучающей группы")
+        except Exception as e:
+            # Пользователь не найден в чате
+            print(f"Ошибка при проверке пользователя {user['telegram_id']} в обучающей группе: {e}")
+            in_study = False
+        
+        # Обновляем статус в базе данных
+        db.update_presence(user["telegram_id"], in_work, in_study)
+        
+        # Если пользователь в обучающей группе, но не в рабочем чате - удаляем
+        if in_study and not in_work:
+            try:
+                await message.bot.ban_chat_member(
+                    config.study_group_id, user["telegram_id"]
+                )
+                await message.bot.unban_chat_member(
+                    config.study_group_id, user["telegram_id"]
+                )
                 
                 text = (
-                    f"Пользователь вышел из: {', '.join(left_from)}\n\n"
+                    "Пользователь удален из обучающей группы (нет в рабочем чате)\n\n"
                     f"{user['name']}\n"
                     f"ID: {user['telegram_id']}\n"
                     f"{format_username(user['username'])}"
                 )
                 
-                keyboard = get_trial_decision(user["telegram_id"])
-                await message.answer(text, reply_markup=keyboard)
+                await message.answer(text)
+                db.remove_user(user["telegram_id"])
                 found_issues = True
-        except Exception as e:
-            print(
-                f"Ошибка при проверке пользователя {user['telegram_id']}: {e}"
+            except Exception as e:
+                await message.answer(
+                    f"Ошибка при удалении {user['telegram_id']}: {e}"
+                )
+        
+        # Если пользователь вышел из одного или обоих чатов - сообщаем
+        elif not in_work or not in_study:
+            left_from = []
+            if not in_work:
+                left_from.append("рабочего чата")
+            if not in_study:
+                left_from.append("обучающей группы")
+            
+            text = (
+                f"Пользователь вышел из: {', '.join(left_from)}\n\n"
+                f"{user['name']}\n"
+                f"ID: {user['telegram_id']}\n"
+                f"{format_username(user['username'])}"
             )
+            
+            keyboard = get_trial_decision(user["telegram_id"])
+            await message.answer(text, reply_markup=keyboard)
+            found_issues = True
     
     if not found_issues:
         await message.answer("Проверка завершена. Все пользователи на месте.")

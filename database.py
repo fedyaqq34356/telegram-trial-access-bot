@@ -28,8 +28,8 @@ class Database:
                     join_date TEXT NOT NULL,
                     trial_end_date TEXT NOT NULL,
                     status TEXT DEFAULT 'trial',
-                    in_work_chat INTEGER DEFAULT 1,
-                    in_study_group INTEGER DEFAULT 1,
+                    in_work_chat INTEGER DEFAULT 0,
+                    in_study_group INTEGER DEFAULT 0,
                     notified_one_day INTEGER DEFAULT 0
                 )
             ''')
@@ -44,10 +44,12 @@ class Database:
         trial_end = join_date + timedelta(minutes=trial_minutes)
         
         with self._get_connection() as conn:
+            # ВАЖНО: По умолчанию пользователь НЕ находится ни в одном чате
+            # Флаги будут установлены отдельно через update_presence
             conn.execute('''
                 INSERT OR IGNORE INTO users 
-                (telegram_id, name, username, join_date, trial_end_date)
-                VALUES (?, ?, ?, ?, ?)
+                (telegram_id, name, username, join_date, trial_end_date, in_work_chat, in_study_group)
+                VALUES (?, ?, ?, ?, ?, 0, 0)
             ''', (telegram_id, name, username, join_date.isoformat(), trial_end.isoformat()))
     
     def get_user(self, telegram_id: int):
@@ -109,6 +111,7 @@ class Database:
             )
     
     def update_presence(self, telegram_id: int, in_work: bool, in_study: bool):
+        """Обновляет флаги присутствия пользователя в чатах"""
         with self._get_connection() as conn:
             conn.execute(
                 'UPDATE users SET in_work_chat = ?, in_study_group = ? WHERE telegram_id = ?',

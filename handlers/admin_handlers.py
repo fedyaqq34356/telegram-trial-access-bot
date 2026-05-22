@@ -5,17 +5,45 @@ from aiogram.filters import Filter
 
 from database import Database
 from config import Config
-from keyboards import get_cancel_kb
+from keyboards import get_cancel_kb, get_main_menu, get_trial_period_menu, get_coefficient_menu
 from state import user_modes, admin_check_mode
 
 router = Router()
+
+
+@router.message(F.text == "Тестовый период")
+async def open_trial_section(message: Message, db: Database):
+    if not db.is_admin(message.from_user.id):
+        return
+    user_modes.pop(message.from_user.id, None)
+    admin_check_mode.discard(message.from_user.id)
+    await message.answer("Раздел: Тестовый период", reply_markup=get_trial_period_menu())
+
+
+@router.message(F.text == "Коэффициент неприязни")
+async def open_coefficient_section(message: Message, db: Database):
+    if not db.is_admin(message.from_user.id):
+        return
+    user_modes.pop(message.from_user.id, None)
+    admin_check_mode.discard(message.from_user.id)
+    await message.answer("Раздел: Коэффициент неприязни", reply_markup=get_coefficient_menu())
+
+
+@router.message(F.text == "⬅️ Назад")
+async def go_back_to_main(message: Message, db: Database):
+    if not db.is_admin(message.from_user.id):
+        return
+    user_modes.pop(message.from_user.id, None)
+    admin_check_mode.discard(message.from_user.id)
+    await message.answer("Главное меню", reply_markup=get_main_menu())
+
 
 ALL_MENU_TEXTS = {
     "Пользователи", "На пробном периоде", "Проверка", "Удалить участника",
     "Skip пробный период", "Добавить администратора", "Убрать администратора",
     "Список администраторов", "История проверок", "Агентства",
     "Добавить агентство", "Редактировать агентство", "Удалить агентство",
-    "Проверить ID",
+    "Проверить ID", "Тестовый период", "Коэффициент неприязни", "⬅️ Назад",
 }
 
 

@@ -7,6 +7,13 @@ def get_cancel_kb() -> InlineKeyboardMarkup:
 
 def get_main_menu() -> ReplyKeyboardMarkup:
     keyboard = [
+        [KeyboardButton(text="Тестовый период")],
+        [KeyboardButton(text="Коэффициент неприязни")],
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+def get_trial_period_menu() -> ReplyKeyboardMarkup:
+    keyboard = [
         [KeyboardButton(text="Пользователи")],
         [KeyboardButton(text="На пробном периоде")],
         [KeyboardButton(text="Проверка")],
@@ -15,12 +22,19 @@ def get_main_menu() -> ReplyKeyboardMarkup:
         [KeyboardButton(text="Добавить администратора")],
         [KeyboardButton(text="Убрать администратора")],
         [KeyboardButton(text="Список администраторов")],
+        [KeyboardButton(text="⬅️ Назад")],
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+def get_coefficient_menu() -> ReplyKeyboardMarkup:
+    keyboard = [
         [KeyboardButton(text="Проверить ID")],
         [KeyboardButton(text="История проверок")],
         [KeyboardButton(text="Агентства")],
         [KeyboardButton(text="Добавить агентство")],
         [KeyboardButton(text="Редактировать агентство")],
         [KeyboardButton(text="Удалить агентство")],
+        [KeyboardButton(text="⬅️ Назад")],
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 

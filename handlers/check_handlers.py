@@ -29,6 +29,13 @@ PUNISHMENTS = {
     "C": "⛔ Бан на 7 дней",
     "D": "⛔ Перманентный бан",
 }
+GRADE_DESCRIPTIONS = {
+    "S": "заработок от 45000 коинов и выше",
+    "A": "заработок от 20000 до 44999 коинов",
+    "B": "заработок от 7000 до 19999 коинов",
+    "C": "заработок от 2000 до 6999 коинов",
+    "D": "заработок менее 2000 коинов в месяц",
+}
 
 
 def is_valid_anchor_id(text: str) -> bool:
@@ -55,7 +62,7 @@ def check_risk(grade: str, down_rate: float, real_down_rate: float) -> list:
         risks.append("— коэффициент в профиле выше 0.18")
     limit = GRADE_LIMITS.get(grade)
     if limit is not None and float(real_down_rate) >= limit:
-        risks.append(f"— коэффициент за 30 дней выше лимита для уровня {grade}")
+        risks.append(f"— коэффициент за последние 30 дней выше лимита для уровня {grade}")
     return risks
 
 
@@ -72,7 +79,7 @@ def format_check_result(host: dict) -> str:
         f"Коэффициент в профиле: {down_rate}\n"
         f"Коэффициент за последние 30 дней: {real_down_rate}\n\n"
         f"Месячный заработок: {monthly_income:,} coins\n"
-        f"Уровень: {grade}\n"
+        f"Уровень: {grade} — {GRADE_DESCRIPTIONS[grade]}\n"
     )
 
     if not risks:

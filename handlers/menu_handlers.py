@@ -163,11 +163,12 @@ async def show_check_history(message: Message, db: Database):
         username_str = f"@{r['username']}" if r['username'] else "без username"
         found_str = f"🏢 {r['agency']} | Уровень: {r['grade']}" if r['found'] else "❌ Не найден"
         status_str = "⚠️ Риск" if r['has_risk'] else "✅ Норма"
-        text += f"👤 {username_str} | ID: {r['anchor_id']}\n"
+        text += f"👤 {username_str} (TG ID: {r['tg_id']}) | Halo ID: {r['anchor_id']}\n"
         text += f"📅 {r['created_at']}\n"
         text += f"{found_str}\n"
         if r['found']:
             text += f"📊 Профиль: {r['down_rate']} | 30 дней: {r['real_down_rate']}\n"
+            text += f"💰 Заработок: {r['monthly_income']} coins\n"
             text += f"{status_str}\n"
         text += "—" * 20 + "\n"
     if len(text) > 4000:

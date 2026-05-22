@@ -38,6 +38,46 @@ class Database:
                     telegram_id INTEGER PRIMARY KEY
                 )
             ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS check_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tg_id INTEGER,
+                    username TEXT,
+                    anchor_id TEXT,
+                    agency TEXT,
+                    down_rate TEXT,
+                    real_down_rate TEXT,
+                    monthly_income TEXT,
+                    grade TEXT,
+                    has_risk INTEGER DEFAULT 0,
+                    found INTEGER DEFAULT 0,
+                    created_at TEXT
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS agencies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    url TEXT NOT NULL DEFAULT 'https://admin.livegirl.me',
+                    account TEXT NOT NULL,
+                    password TEXT NOT NULL,
+                    aemail TEXT NOT NULL,
+                    apassword TEXT NOT NULL,
+                    tfa_required INTEGER DEFAULT 0
+                )
+            ''')
+            cursor = conn.execute('SELECT COUNT(*) FROM agencies')
+            if cursor.fetchone()[0] == 0:
+                try:
+                    from agencies import AGENCIES
+                    for ag in AGENCIES:
+                        conn.execute('''
+                            INSERT INTO agencies (name, url, account, password, aemail, apassword, tfa_required)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ''', (ag['name'], ag['url'], ag['account'], ag['password'],
+                              ag['aemail'], ag['apassword'], int(ag.get('tfa_required', False))))
+                except Exception:
+                    pass
     
     def add_user(self, telegram_id: int, name: str, username: Optional[str], trial_minutes: int):
         join_date = datetime.now()
@@ -142,3 +182,50 @@ class Database:
                 (telegram_id,)
             )
             return cursor.fetchone() is not None
+
+    def save_check(self, tg_id, username, anchor_id, agency, down_rate,
+                   real_down_rate, monthly_income, grade, has_risk, found):
+        with self._get_connection() as conn:
+            conn.execute("""
+                INSERT INTO check_history
+                (tg_id, username, anchor_id, agency, down_rate, real_down_rate,
+                 monthly_income, grade, has_risk, found, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (tg_id, username, anchor_id, agency, str(down_rate), str(real_down_rate),
+                  str(monthly_income), grade, int(has_risk), int(found),
+                  datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+    def get_history(self, limit: int = 20):
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM check_history ORDER BY created_at DESC LIMIT ?", (limit,)
+            )
+            return cursor.fetchall()
+
+    def get_all_agencies(self):
+        with self._get_connection() as conn:
+            cursor = conn.execute('SELECT * FROM agencies ORDER BY id')
+            return cursor.fetchall()
+
+    def get_agency(self, agency_id: int):
+        with self._get_connection() as conn:
+            cursor = conn.execute('SELECT * FROM agencies WHERE id = ?', (agency_id,))
+            return cursor.fetchone()
+
+    def add_agency(self, name, url, account, password, aemail, apassword, tfa_required):
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT INTO agencies (name, url, account, password, aemail, apassword, tfa_required)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (name, url, account, password, aemail, apassword, int(tfa_required)))
+
+    def remove_agency(self, agency_id: int):
+        with self._get_connection() as conn:
+            conn.execute('DELETE FROM agencies WHERE id = ?', (agency_id,))
+
+    def update_agency(self, agency_id: int, field: str, value):
+        allowed = {"name", "account", "password", "aemail", "apassword", "tfa_required"}
+        if field not in allowed:
+            raise ValueError(f"Invalid field: {field}")
+        with self._get_connection() as conn:
+            conn.execute(f'UPDATE agencies SET {field} = ? WHERE id = ?', (value, agency_id))

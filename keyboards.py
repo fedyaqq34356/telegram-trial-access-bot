@@ -1,5 +1,10 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
+def get_cancel_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="❌ Отмена", callback_data="admin_cancel")
+    ]])
+
 def get_main_menu() -> ReplyKeyboardMarkup:
     keyboard = [
         [KeyboardButton(text="Пользователи")],
@@ -9,7 +14,13 @@ def get_main_menu() -> ReplyKeyboardMarkup:
         [KeyboardButton(text="Skip пробный период")],
         [KeyboardButton(text="Добавить администратора")],
         [KeyboardButton(text="Убрать администратора")],
-        [KeyboardButton(text="Список администраторов")]
+        [KeyboardButton(text="Список администраторов")],
+        [KeyboardButton(text="Проверить ID")],
+        [KeyboardButton(text="История проверок")],
+        [KeyboardButton(text="Агентства")],
+        [KeyboardButton(text="Добавить агентство")],
+        [KeyboardButton(text="Редактировать агентство")],
+        [KeyboardButton(text="Удалить агентство")],
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 

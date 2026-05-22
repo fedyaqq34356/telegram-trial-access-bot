@@ -1,5 +1,7 @@
 import asyncio
 import logging
+from dotenv import load_dotenv
+load_dotenv()
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 
@@ -16,7 +18,7 @@ logging.basicConfig(
 
 async def start_command(message, db: Database):
     user_id = message.from_user.id
-    
+
     if db.is_admin(user_id):
         await message.answer(
             "Админ-панель бота управления участниками",
@@ -24,8 +26,9 @@ async def start_command(message, db: Database):
         )
     else:
         await message.answer(
-            f"Ваш ID: `{user_id}`",
-            parse_mode="Markdown"
+            "👋 Привет!\n\n"
+            "Я помогу вам проверить ваш коэффициент неприязни и статус риска.\n\n"
+            "📱 Отправьте ваш ID из приложения Halo Live:"
         )
 
 async def main():

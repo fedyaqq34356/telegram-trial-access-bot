@@ -148,3 +148,46 @@ async def check_presence(message: Message, db: Database, config: Config):
         await message.answer("Проверка завершена. Все пользователи на месте.")
     else:
         await message.answer("Проверка завершена")
+
+
+@router.message(F.text == "История проверок")
+async def show_check_history(message: Message, db: Database):
+    if not db.is_admin(message.from_user.id):
+        return
+    records = db.get_history(limit=20)
+    if not records:
+        await message.answer("История проверок пуста.")
+        return
+    text = "📋 Последние 20 проверок:\n\n"
+    for r in records:
+        username_str = f"@{r['username']}" if r['username'] else "без username"
+        found_str = f"🏢 {r['agency']} | Уровень: {r['grade']}" if r['found'] else "❌ Не найден"
+        status_str = "⚠️ Риск" if r['has_risk'] else "✅ Норма"
+        text += f"👤 {username_str} | ID: {r['anchor_id']}\n"
+        text += f"📅 {r['created_at']}\n"
+        text += f"{found_str}\n"
+        if r['found']:
+            text += f"📊 Профиль: {r['down_rate']} | 30 дней: {r['real_down_rate']}\n"
+            text += f"{status_str}\n"
+        text += "—" * 20 + "\n"
+    if len(text) > 4000:
+        for i in range(0, len(text), 4000):
+            await message.answer(text[i:i + 4000])
+    else:
+        await message.answer(text)
+
+
+@router.message(F.text == "Агентства")
+async def show_agencies(message: Message, db: Database):
+    if not db.is_admin(message.from_user.id):
+        return
+    agencies = db.get_all_agencies()
+    if not agencies:
+        await message.answer("Нет подключённых агентств.\n\nНажмите «Добавить агентство» чтобы добавить первое.")
+        return
+    text = f"🏢 Подключённых агентств: {len(agencies)}\n\n"
+    for ag in agencies:
+        tfa_str = "✅ Есть" if ag["tfa_required"] else "❌ Нет"
+        text += f"ID {ag['id']}. {ag['name']}\n   URL: {ag['url']}\n   2FA: {tfa_str}\n\n"
+    text += "Чтобы удалить — нажмите «Удалить агентство»."
+    await message.answer(text)

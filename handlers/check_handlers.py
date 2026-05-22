@@ -125,6 +125,8 @@ async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
 
 @router.message(F.text == "Проверить ID")
 async def prompt_admin_check(message: Message, db: Database):
+    if message.chat.type != "private":
+        return
     if not db.is_admin(message.from_user.id):
         return
     user_modes.pop(message.from_user.id, None)
@@ -134,6 +136,8 @@ async def prompt_admin_check(message: Message, db: Database):
 
 @router.message(F.text)
 async def handle_text_message(message: Message, bot: Bot, db: Database):
+    if message.chat.type != "private":
+        return
     user_id = message.from_user.id
 
     if db.is_admin(user_id):
@@ -152,7 +156,13 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
     code = (message.text or "").strip()
 
     if not re.match(r'^\d{6}$', code):
-        await message.answer("Код должен состоять из 6 цифр. Попробуйте ещё раз.")
+        if is_valid_anchor_id(code):
+            await message.answer(
+                "⏳ Сейчас ожидается код из Google Authenticator.\n"
+                "Введите 6-значный код или нажмите «❌ Отменить проверку»."
+            )
+        else:
+            await message.answer("Код должен состоять из 6 цифр. Попробуйте ещё раз.")
         return
 
     pending = pending_tfa[user_id]

@@ -9,12 +9,11 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from database import Database
 from parser import HaloLiveParser, SESSION_EXPIRED
 from keyboards import get_cancel_kb
-from state import user_modes, admin_check_mode
+from state import user_modes, admin_check_mode, pending_tfa, tfa_waitlist
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-pending_tfa: dict = {}      # admin_tg_id -> {anchor_id, user_tg_id, user_username, agency_name}
 pending_parsers: dict = {}  # agency_name -> HaloLiveParser instance (awaiting 2FA)
 active_sessions: dict = {}  # agency_name -> logged-in HaloLiveParser instance
 user_last_check: dict = {}  # user_id -> timestamp of last check
@@ -94,6 +93,45 @@ def format_check_result(host: dict) -> str:
     return text
 
 
+async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
+                            user_tg_id: int, user_username, agency_name: str):
+    """Ищет девушку по ID и отправляет результат пользователю."""
+    try:
+        host = await asyncio.to_thread(parser.find_by_id, anchor_id)
+    except Exception as e:
+        logger.error(f"find_by_id error for {anchor_id}: {e}")
+        host = None
+
+    if host and host is not SESSION_EXPIRED:
+        result_text = format_check_result(host)
+        grade = get_grade(host["MonthlyIncome"])
+        risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
+        db.save_check(
+            tg_id=user_tg_id, username=user_username, anchor_id=anchor_id,
+            agency=host.get("Agent", agency_name),
+            down_rate=host["DownRate"], real_down_rate=host["RealDownRate"],
+            monthly_income=host["MonthlyIncome"], grade=grade,
+            has_risk=len(risks) > 0, found=True
+        )
+        try:
+            await bot.send_message(user_tg_id, result_text)
+        except Exception as e:
+            logger.error(f"Cannot send result to user {user_tg_id}: {e}")
+    else:
+        db.save_check(
+            tg_id=user_tg_id, username=user_username, anchor_id=anchor_id,
+            agency=agency_name, down_rate="", real_down_rate="",
+            monthly_income="", grade="", has_risk=False, found=False
+        )
+        try:
+            await bot.send_message(
+                user_tg_id,
+                "ID не найден. Проверьте правильность ID и попробуйте ещё раз."
+            )
+        except Exception as e:
+            logger.error(f"Cannot send not-found to user {user_tg_id}: {e}")
+
+
 @router.callback_query(F.data == "cancel_2fa")
 async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
     admin_id = callback.from_user.id
@@ -111,6 +149,7 @@ async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
         pending_tfa.pop(aid, None)
     pending_parsers.pop(agency_name, None)
 
+    # Уведомляем основного пользователя
     try:
         await bot.send_message(
             user_tg_id,
@@ -119,7 +158,21 @@ async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
     except Exception as e:
         logger.error(f"Cannot notify user {user_tg_id} about cancellation: {e}")
 
-    await callback.message.edit_text("❌ Проверка отменена. Пользователь уведомлён.")
+    # Уведомляем всех из очереди ожидания
+    waitlist = tfa_waitlist.pop(agency_name, [])
+    for waiter in waitlist:
+        try:
+            await bot.send_message(
+                waiter["user_tg_id"],
+                "⚠️ Проверка отменена. Попробуйте отправить ID ещё раз позже."
+            )
+        except Exception as e:
+            logger.error(f"Cannot notify waiter {waiter['user_tg_id']}: {e}")
+
+    cancelled_count = 1 + len(waitlist)
+    await callback.message.edit_text(
+        f"❌ Проверка отменена. Уведомлено пользователей: {cancelled_count}."
+    )
     await callback.answer()
 
 
@@ -181,55 +234,26 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
 
     if login_result is True:
         active_sessions[agency_name] = parser
-        host = await asyncio.to_thread(parser.find_by_id, anchor_id)
 
         admin_ids = db.get_all_admins()
         for admin_id in admin_ids:
             pending_tfa.pop(admin_id, None)
         pending_parsers.pop(agency_name, None)
 
-        if host and host is not SESSION_EXPIRED:
-            result_text = format_check_result(host)
-            grade = get_grade(host["MonthlyIncome"])
-            risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
-            db.save_check(
-                tg_id=user_tg_id,
-                username=user_username,
-                anchor_id=anchor_id,
-                agency=host.get("Agent", agency_name),
-                down_rate=host["DownRate"],
-                real_down_rate=host["RealDownRate"],
-                monthly_income=host["MonthlyIncome"],
-                grade=grade,
-                has_risk=len(risks) > 0,
-                found=True
+        # Обрабатываем основной запрос
+        await _process_and_send(bot, db, parser, anchor_id, user_tg_id, user_username, agency_name)
+
+        # Обрабатываем всех из очереди ожидания
+        waitlist = tfa_waitlist.pop(agency_name, [])
+        for waiter in waitlist:
+            await _process_and_send(
+                bot, db, parser,
+                waiter["anchor_id"], waiter["user_tg_id"], waiter["user_username"],
+                agency_name
             )
-            try:
-                await bot.send_message(user_tg_id, result_text)
-            except Exception as e:
-                logger.error(f"Cannot send result to user {user_tg_id}: {e}")
-            await message.answer("✅ Готово. Ответ отправлен пользователю.")
-        else:
-            db.save_check(
-                tg_id=user_tg_id,
-                username=user_username,
-                anchor_id=anchor_id,
-                agency=agency_name,
-                down_rate="",
-                real_down_rate="",
-                monthly_income="",
-                grade="",
-                has_risk=False,
-                found=False
-            )
-            try:
-                await bot.send_message(
-                    user_tg_id,
-                    "ID не найден. Проверьте правильность ID и попробуйте ещё раз."
-                )
-            except Exception as e:
-                logger.error(f"Cannot send not-found message to user {user_tg_id}: {e}")
-            await message.answer("✅ Проверка завершена. ID не найден ни в одном агентстве.")
+
+        total = 1 + len(waitlist)
+        await message.answer(f"✅ Готово. Обработано запросов: {total}. Ответы отправлены пользователям.")
 
     else:
         await message.answer("❌ Неверный код 2FA. Попробуйте ввести код ещё раз:")
@@ -304,6 +328,18 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
             else:
                 # host is None — ID not found in this agency, try next
                 continue
+
+        # Если 2FA уже ожидается для этого агентства — добавляем в очередь
+        if agency_name in pending_parsers:
+            if agency_name not in tfa_waitlist:
+                tfa_waitlist[agency_name] = []
+            tfa_waitlist[agency_name].append({
+                "anchor_id": anchor_id,
+                "user_tg_id": user_id,
+                "user_username": user_username,
+            })
+            await message.answer("⏳ Требуется дополнительная проверка. Ожидайте ответа...")
+            return
 
         # No valid cached session — create a new one and log in
         parser = HaloLiveParser(

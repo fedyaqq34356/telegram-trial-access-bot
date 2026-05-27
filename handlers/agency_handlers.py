@@ -6,7 +6,7 @@ from aiogram.filters import Filter
 
 from database import Database
 from keyboards import get_cancel_kb
-from state import user_modes, admin_check_mode
+from state import user_modes, admin_check_mode, pending_tfa
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -47,6 +47,9 @@ class InAgencySetup(Filter):
     """Matches only when this admin has an active agency setup session."""
     async def __call__(self, message: Message) -> bool:
         admin_id = message.from_user.id
+        # 2FA ожидает код — не перехватывать сообщение
+        if admin_id in pending_tfa:
+            return False
         if message.text in MENU_TEXTS:
             agency_setup.pop(admin_id, None)
             user_modes.pop(admin_id, None)

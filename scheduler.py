@@ -136,7 +136,7 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
                 msg = (
                     f"⚠️ Внимание! Аккаунт в зоне риска\n\n"
                     f"ID: {anchor_id}\n"
-                    f"Nickname: {host.get('AnchorName', '—')}\n"
+                    f"Nickname: {host.get('AnchorName') or host.get('NickName', '—')}\n"
                     f"Агентство: {host.get('Agent', agency_name)}\n\n"
                     f"Причина:\n" + "\n".join(risks) + "\n\n"
                     f"Срочно проверь свой коэффициент в боте и начни исправлять показатели.\n\n"
@@ -156,6 +156,8 @@ def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler
 
     scheduler.add_job(check_expired_trials, 'interval', hours=1, args=[bot, db, admin_ids])
     scheduler.add_job(check_expiring_soon, 'interval', hours=1, args=[bot, db, admin_ids])
-    scheduler.add_job(check_all_agencies_for_risk, 'interval', hours=6, args=[bot, db, admin_ids])
+
+    # ТЕСТ: каждые 30 секунд. После теста заменить seconds=30 на hours=6
+    scheduler.add_job(check_all_agencies_for_risk, 'interval', seconds=30, args=[bot, db, admin_ids])
 
     return scheduler

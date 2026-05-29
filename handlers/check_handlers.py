@@ -72,11 +72,11 @@ def format_check_result(host: dict) -> str:
     monthly_income = int(host["MonthlyIncome"])
     risks = check_risk(grade, down_rate, real_down_rate)
 
-    monthly_rank = host.get("MontlyRank") or host.get("MonthlyRank")
+    monthly_rank = host.get("MontlyRank")
 
     text = f"Ваш ID: {host['DisplayAccountId']}\n"
 
-    if monthly_rank:
+    if monthly_rank is not None:
         text += f"Ты находишься на {monthly_rank} месте в приложении на сегодняшний день\n"
 
     text += (
@@ -129,10 +129,7 @@ async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
             monthly_income="", grade="", has_risk=False, found=False
         )
         try:
-            await bot.send_message(
-                user_tg_id,
-                "ID не найден. Проверьте правильность ID и попробуйте ещё раз."
-            )
+            await bot.send_message(user_tg_id, "ID не найден. Проверьте правильность ID и попробуйте ещё раз.")
         except Exception as e:
             logger.error(f"Cannot send not-found to user {user_tg_id}: {e}")
 
@@ -155,27 +152,19 @@ async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
     pending_parsers.pop(agency_name, None)
 
     try:
-        await bot.send_message(
-            user_tg_id,
-            "⚠️ Проверка отменена. Попробуйте отправить ID ещё раз позже."
-        )
+        await bot.send_message(user_tg_id, "⚠️ Проверка отменена. Попробуйте отправить ID ещё раз позже.")
     except Exception as e:
         logger.error(f"Cannot notify user {user_tg_id} about cancellation: {e}")
 
     waitlist = tfa_waitlist.pop(agency_name, [])
     for waiter in waitlist:
         try:
-            await bot.send_message(
-                waiter["user_tg_id"],
-                "⚠️ Проверка отменена. Попробуйте отправить ID ещё раз позже."
-            )
+            await bot.send_message(waiter["user_tg_id"], "⚠️ Проверка отменена. Попробуйте отправить ID ещё раз позже.")
         except Exception as e:
             logger.error(f"Cannot notify waiter {waiter['user_tg_id']}: {e}")
 
     cancelled_count = 1 + len(waitlist)
-    await callback.message.edit_text(
-        f"❌ Проверка отменена. Уведомлено пользователей: {cancelled_count}."
-    )
+    await callback.message.edit_text(f"❌ Проверка отменена. Уведомлено пользователей: {cancelled_count}.")
     await callback.answer()
 
 
@@ -213,10 +202,7 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
 
     if not re.match(r'^\d{6}$', code):
         if is_valid_anchor_id(code):
-            await message.answer(
-                "⏳ Сейчас ожидается код из Google Authenticator.\n"
-                "Введите 6-значный код или нажмите «❌ Отменить проверку»."
-            )
+            await message.answer("⏳ Сейчас ожидается код из Google Authenticator.\nВведите 6-значный код или нажмите «❌ Отменить проверку».")
         else:
             await message.answer("Код должен состоять из 6 цифр. Попробуйте ещё раз.")
         return
@@ -237,7 +223,6 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
 
     if login_result is True:
         active_sessions[agency_name] = parser
-
         admin_ids = db.get_all_admins()
         for admin_id in admin_ids:
             pending_tfa.pop(admin_id, None)
@@ -247,15 +232,10 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
 
         waitlist = tfa_waitlist.pop(agency_name, [])
         for waiter in waitlist:
-            await _process_and_send(
-                bot, db, parser,
-                waiter["anchor_id"], waiter["user_tg_id"], waiter["user_username"],
-                agency_name
-            )
+            await _process_and_send(bot, db, parser, waiter["anchor_id"], waiter["user_tg_id"], waiter["user_username"], agency_name)
 
         total = 1 + len(waitlist)
         await message.answer(f"✅ Готово. Обработано запросов: {total}. Ответы отправлены пользователям.")
-
     else:
         await message.answer("❌ Неверный код 2FA. Попробуйте ввести код ещё раз:")
 
@@ -305,7 +285,6 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
                 host = None
 
             if host is SESSION_EXPIRED:
-                logger.info(f"Session expired for agency {agency_name}, will re-login")
                 active_sessions.pop(agency_name, None)
             elif host is not None:
                 result_text = format_check_result(host)
@@ -373,10 +352,8 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
         elif login_result == "need_tfa":
             if tfa_requested:
                 continue
-
             tfa_requested = True
             pending_parsers[agency_name] = parser
-
             pending_entry = {
                 "anchor_id": anchor_id,
                 "user_tg_id": user_id,
@@ -385,7 +362,6 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
             }
             for admin_id in admin_ids:
                 pending_tfa[admin_id] = pending_entry
-
             tfa_kb = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="❌ Отменить проверку", callback_data="cancel_2fa")
             ]])
@@ -393,28 +369,21 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
                 try:
                     await bot.send_message(
                         admin_id,
-                        f"🔐 Требуется код 2FA для агентства {agency_name}\n"
-                        f"Введите 6-значный код из Google Authenticator:",
+                        f"🔐 Требуется код 2FA для агентства {agency_name}\nВведите 6-значный код из Google Authenticator:",
                         reply_markup=tfa_kb
                     )
                 except Exception as e:
                     logger.error(f"Cannot send 2FA request to admin {admin_id}: {e}")
-
             await message.answer("⏳ Требуется дополнительная проверка. Ожидайте ответа...")
             return
 
         elif login_result == "timeout":
             had_timeout = True
-            logger.error(f"Login timeout for agency {agency_name}")
             continue
-
         elif login_result == "network":
             had_network_error = True
-            logger.error(f"Login network error for agency {agency_name}")
             continue
-
         else:
-            logger.error(f"Login failed for agency {agency_name}")
             continue
 
     db.save_check(

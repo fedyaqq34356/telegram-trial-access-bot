@@ -18,7 +18,7 @@ pending_parsers: dict = {}
 active_sessions: dict = {}
 user_last_check: dict = {}
 
-CHECK_COOLDOWN = 15
+CHECK_COOLDOWN = 21600  # 6 часов
 
 GRADE_LIMITS = {"S": None, "A": 0.25, "B": 0.18, "C": 0.18, "D": 0.12}
 PUNISHMENTS = {
@@ -26,15 +26,16 @@ PUNISHMENTS = {
     "A": "⛔ Бан на 1 день",
     "B": "⛔ Бан на 3 дня",
     "C": "⛔ Бан на 7 дней",
-    "D": "⛔ Перманентный бан",
+    "D": "⛔ Перманентный бан аккаунта",
 }
 GRADE_DESCRIPTIONS = {
-    "S": "заработок от 45000 коинов и выше",
-    "A": "заработок от 20000 до 44999 коинов",
-    "B": "заработок от 7000 до 19999 коинов",
-    "C": "заработок от 2000 до 6999 коинов",
-    "D": "заработок менее 2000 коинов в месяц",
+    "S": "заработок от 45 000 coins и выше",
+    "A": "заработок от 20 000 до 44 999 coins",
+    "B": "заработок от 7 000 до 19 999 coins",
+    "C": "заработок от 2 000 до 6 999 coins",
+    "D": "заработок менее 2 000 coins за последние 30 дней",
 }
+GRADE_EMOJIS = {"S": "💎", "A": "🥇", "B": "🥈", "C": "🥉", "D": "📉"}
 
 
 def is_valid_anchor_id(text: str) -> bool:
@@ -58,10 +59,10 @@ def get_grade(monthly_income: int) -> str:
 def check_risk(grade: str, down_rate: float, real_down_rate: float) -> list:
     risks = []
     if float(down_rate) >= 0.18:
-        risks.append("— коэффициент в профиле выше 0.18")
+        risks.append("profile_rate")
     limit = GRADE_LIMITS.get(grade)
     if limit is not None and float(real_down_rate) >= limit:
-        risks.append(f"— коэффициент за последние 30 дней выше лимита для уровня {grade}")
+        risks.append(f"monthly_rate:{limit}")
     return risks
 
 
@@ -70,33 +71,66 @@ def format_check_result(host: dict) -> str:
     down_rate = float(host["DownRate"])
     real_down_rate = float(host["RealDownRate"])
     monthly_income = int(host["MonthlyIncome"])
-    risks = check_risk(grade, down_rate, real_down_rate)
+    raw_risks = check_risk(grade, down_rate, real_down_rate)
 
     monthly_rank = host.get("MonthlyIncomeRanking")
+    limit = GRADE_LIMITS.get(grade)
+    grade_emoji = GRADE_EMOJIS.get(grade, "🎖")
 
-    text = f"Ваш ID: {host['DisplayAccountId']}\n"
+    # Иконки для коэффициентов
+    profile_ok = down_rate < 0.18
+    profile_icon = "✅" if profile_ok else "❌"
+
+    monthly_ok = (limit is None) or (real_down_rate < limit)
+    monthly_icon = "✅" if monthly_ok else "❌"
+
+    SEP = "━━━━━━━━━━━━━━"
+
+    lines = []
+    lines.append("📊 <b>Информация по аккаунту</b>")
+    lines.append("")
+    lines.append(f"🆔 <b>ID:</b> {host['DisplayAccountId']}")
 
     if monthly_rank is not None:
-        text += f"Ты находишься на {monthly_rank} месте в приложении на сегодняшний день\n"
+        lines.append(f"🏆 <b>Место в рейтинге приложения:</b> {monthly_rank} место")
 
-    text += (
-        f"Агентство: {host['Agent']}\n\n"
-        f"Коэффициент в профиле: {down_rate}\n"
-        f"Коэффициент за последние 30 дней: {real_down_rate}\n\n"
-        f"Месячный заработок: {monthly_income:,} coins\n"
-        f"Уровень: {grade} — {GRADE_DESCRIPTIONS[grade]}\n"
-    )
+    lines.append(f"🏢 <b>Агентство:</b> {host['Agent']}")
+    lines.append(SEP)
 
-    if not risks:
-        text += "\n✅ Всё в норме"
+    lines.append(f"📈 <b>Коэффициент в профиле:</b> {down_rate} {profile_icon}")
+    lines.append(f"📉 <b>Коэффициент за последние 30 дней:</b> {real_down_rate} {monthly_icon}")
+    lines.append(f"💰 <b>Заработок за последние 30 дней:</b> {monthly_income:,} coins")
+    lines.append(f"{grade_emoji} <b>Ваш уровень:</b> {grade} — {GRADE_DESCRIPTIONS[grade]}")
+    lines.append(SEP)
+
+    if not raw_risks:
+        lines.append("✅ <b>Всё в норме!</b> Так держать 🌟")
     else:
-        punishment = PUNISHMENTS.get(grade)
-        text += "\n⚠️ Внимание, вы в зоне риска\n\nПричина:\n"
-        text += "\n".join(risks)
-        if punishment:
-            text += f"\n\nВозможное наказание:\n{punishment}"
+        lines.append("⚠️ <b>Внимание! Вы находитесь в зоне риска</b>")
+        lines.append("")
+        lines.append("Причина:")
+        lines.append("")
+        for risk in raw_risks:
+            if risk == "profile_rate":
+                lines.append("🔸 Коэффициент в профиле превышает допустимый лимит.")
+                lines.append("   Допустимый лимит: до <b>0.18</b>")
+                lines.append(f"   Ваш коэффициент: <b>{down_rate}</b>")
+            elif risk.startswith("monthly_rate:"):
+                lim_val = risk.split(":")[1]
+                lines.append(f"🔸 Коэффициент за последние 30 дней превышает допустимый лимит для уровня <b>{grade}</b>.")
+                lines.append(f"   Допустимый лимит: до <b>{lim_val}</b>")
+                lines.append(f"   Ваш коэффициент за 30 дней: <b>{real_down_rate}</b>")
 
-    return text
+        punishment = PUNISHMENTS.get(grade)
+        if punishment:
+            lines.append(SEP)
+            lines.append(f"⛔ <b>Возможное наказание:</b>")
+            lines.append(f"   {punishment}")
+
+        lines.append(SEP)
+        lines.append("📌 Рекомендуется как можно быстрее улучшить показатели, чтобы снизить риск блокировки.")
+
+    return "\n".join(lines)
 
 
 async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
@@ -110,16 +144,16 @@ async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
     if host and host is not SESSION_EXPIRED:
         result_text = format_check_result(host)
         grade = get_grade(host["MonthlyIncome"])
-        risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
+        raw_risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
         db.save_check(
             tg_id=user_tg_id, username=user_username, anchor_id=anchor_id,
             agency=host.get("Agent", agency_name),
             down_rate=host["DownRate"], real_down_rate=host["RealDownRate"],
             monthly_income=host["MonthlyIncome"], grade=grade,
-            has_risk=len(risks) > 0, found=True
+            has_risk=len(raw_risks) > 0, found=True
         )
         try:
-            await bot.send_message(user_tg_id, result_text)
+            await bot.send_message(user_tg_id, result_text, parse_mode="HTML")
         except Exception as e:
             logger.error(f"Cannot send result to user {user_tg_id}: {e}")
     else:
@@ -252,8 +286,10 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
         now = time.time()
         last = user_last_check.get(user_id, 0)
         if now - last < CHECK_COOLDOWN:
-            remaining = int(CHECK_COOLDOWN - (now - last))
-            await message.answer(f"⏳ Подождите {remaining} сек. перед следующей проверкой.")
+            remaining_sec = int(CHECK_COOLDOWN - (now - last))
+            remaining_h = remaining_sec // 3600
+            remaining_m = (remaining_sec % 3600) // 60
+            await message.answer(f"⏳ Следующая проверка будет доступна через {remaining_h} ч. {remaining_m} мин.")
             return
         user_last_check[user_id] = now
 
@@ -289,15 +325,15 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
             elif host is not None:
                 result_text = format_check_result(host)
                 grade = get_grade(host["MonthlyIncome"])
-                risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
+                raw_risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
                 db.save_check(
                     tg_id=user_id, username=user_username, anchor_id=anchor_id,
                     agency=host.get("Agent", agency_name),
                     down_rate=host["DownRate"], real_down_rate=host["RealDownRate"],
                     monthly_income=host["MonthlyIncome"], grade=grade,
-                    has_risk=len(risks) > 0, found=True
+                    has_risk=len(raw_risks) > 0, found=True
                 )
-                await message.answer(result_text)
+                await message.answer(result_text, parse_mode="HTML")
                 return
             else:
                 continue
@@ -338,15 +374,15 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
             if host and host is not SESSION_EXPIRED:
                 result_text = format_check_result(host)
                 grade = get_grade(host["MonthlyIncome"])
-                risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
+                raw_risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
                 db.save_check(
                     tg_id=user_id, username=user_username, anchor_id=anchor_id,
                     agency=host.get("Agent", agency_name),
                     down_rate=host["DownRate"], real_down_rate=host["RealDownRate"],
                     monthly_income=host["MonthlyIncome"], grade=grade,
-                    has_risk=len(risks) > 0, found=True
+                    has_risk=len(raw_risks) > 0, found=True
                 )
-                await message.answer(result_text)
+                await message.answer(result_text, parse_mode="HTML")
                 return
 
         elif login_result == "need_tfa":

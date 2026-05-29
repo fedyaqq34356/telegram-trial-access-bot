@@ -81,8 +81,6 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
     group_chat_id = int(group_chat_id_str)
     agencies = db.get_all_agencies()
 
-    at_risk = []
-
     for agency in agencies:
         agency_name = agency["name"]
         parser = active_sessions.get(agency_name)
@@ -116,6 +114,9 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
                 logger.error(f"Risk check fetch error for {agency_name}: {e}")
                 continue
 
+        # Собираем риски только по текущему агентству
+        at_risk = []
+
         for host in all_hosts:
             try:
                 anchor_id = str(host.get("DisplayAccountId", ""))
@@ -145,6 +146,9 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
                     "anchor_id": anchor_id,
                     "nickname": host.get("NickName") or host.get("AnchorName", "—"),
                     "agency": host.get("Agent", agency_name),
+                    "grade": grade,
+                    "down_rate": float(down_rate),
+                    "real_down_rate": float(real_down_rate),
                     "risks": risks,
                 })
                 db.mark_risk_notified(anchor_id, host.get("Agent", agency_name))
@@ -153,37 +157,70 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
                 logger.error(f"Error processing host {host.get('DisplayAccountId')}: {e}")
                 continue
 
-    if not at_risk:
-        return
+        if not at_risk:
+            continue
 
-    # Отправляем одним сообщением, разбиваем если длиннее 4000 символов
-    header = "⚠️ Аккаунты в зоне риска\n\n"
-    lines = []
-    for h in at_risk:
-        block = (
-            f"👤 {h['nickname']} | ID: {h['anchor_id']}\n"
-            f"🏢 {h['agency']}\n"
-            f"Причина: {'; '.join(r.lstrip('— ') for r in h['risks'])}\n"
-        )
-        lines.append(block)
+        # Формируем одно сообщение на агентство, разбиваем если > 4000 символов
+        header = f"⚠️ <b>Агентство: {agency_name}</b>\nАккаунты в зоне риска\n\n"
+        SEP = "━━━━━━━━━━━━━━"
 
-    message_text = header
-    for block in lines:
-        if len(message_text) + len(block) + 1 > 4000:
-            try:
-                await bot.send_message(group_chat_id, message_text.strip())
-            except Exception as e:
-                logger.error(f"Failed to send risk summary: {e}")
-            message_text = "⚠️ Аккаунты в зоне риска (продолжение)\n\n" + block
-        else:
-            message_text += block + "\n"
+        GRADE_LIMITS = {"S": None, "A": 0.25, "B": 0.18, "C": 0.18, "D": 0.12}
+        PUNISHMENTS = {
+            "S": None,
+            "A": "⛔ Бан на 1 день",
+            "B": "⛔ Бан на 3 дня",
+            "C": "⛔ Бан на 7 дней",
+            "D": "⛔ Перманентный бан аккаунта",
+        }
 
-    if message_text.strip():
+        blocks = []
+        for h in at_risk:
+            limit = GRADE_LIMITS.get(h["grade"])
+            punishment = PUNISHMENTS.get(h["grade"])
+            risk_lines = []
+            for risk in h["risks"]:
+                if risk == "profile_rate":
+                    risk_lines.append(f"🔸 Коэффициент в профиле: <b>{h['down_rate']}</b> (лимит: до <b>0.18</b>)")
+                elif risk.startswith("monthly_rate:"):
+                    lim_val = risk.split(":")[1]
+                    risk_lines.append(f"🔸 Коэффициент за 30 дней: <b>{h['real_down_rate']}</b> (лимит: до <b>{lim_val}</b>)")
+
+            block = (
+                f"👤 <b>{h['nickname']}</b> | 🆔 {h['anchor_id']}\n"
+                f"🎖 Уровень: <b>{h['grade']}</b>\n"
+                + "\n".join(risk_lines)
+            )
+            if punishment:
+                block += f"\n{punishment}"
+            block += f"\n{SEP}"
+            blocks.append(block)
+
+        footer = "\n📌 Срочно проверьте коэффициент и начните исправлять показатели.\nЕсли не обратить внимание — аккаунт могут заблокировать ⛔"
+
+        # Отправляем, разбивая на части при необходимости
+        current = header
+        part = 2
+        for i, block in enumerate(blocks):
+            addition = block + "\n"
+            # Последний блок — добавляем футер
+            is_last = (i == len(blocks) - 1)
+            tail = footer if is_last else ""
+
+            if len(current) + len(addition) + len(tail) > 4000:
+                try:
+                    await bot.send_message(group_chat_id, current.strip(), parse_mode="HTML")
+                except Exception as e:
+                    logger.error(f"Failed to send risk message for {agency_name}: {e}")
+                current = f"⚠️ <b>Агентство: {agency_name}</b> (часть {part})\n\n" + addition
+                part += 1
+            else:
+                current += addition
+
+        current += footer
         try:
-            message_text += "\nСрочно проверьте коэффициент в боте и начните исправлять показатели.\nЕсли не обратить внимание — аккаунт могут заблокировать ⛔"
-            await bot.send_message(group_chat_id, message_text.strip())
+            await bot.send_message(group_chat_id, current.strip(), parse_mode="HTML")
         except Exception as e:
-            logger.error(f"Failed to send risk summary: {e}")
+            logger.error(f"Failed to send risk summary for {agency_name}: {e}")
 
 
 def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler:

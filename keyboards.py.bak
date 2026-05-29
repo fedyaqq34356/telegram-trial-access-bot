@@ -34,7 +34,6 @@ def get_coefficient_menu() -> ReplyKeyboardMarkup:
         [KeyboardButton(text="Добавить агентство")],
         [KeyboardButton(text="Редактировать агентство")],
         [KeyboardButton(text="Удалить агентство")],
-        [KeyboardButton(text="Уведомления")],
         [KeyboardButton(text="⬅️ Назад")],
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)

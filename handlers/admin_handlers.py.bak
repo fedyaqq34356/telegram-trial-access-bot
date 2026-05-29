@@ -43,7 +43,7 @@ ALL_MENU_TEXTS = {
     "Skip пробный период", "Добавить администратора", "Убрать администратора",
     "Список администраторов", "История проверок", "Агентства",
     "Добавить агентство", "Редактировать агентство", "Удалить агентство",
-    "Проверить ID", "Тестовый период", "Коэффициент неприязни", "Уведомления", "⬅️ Назад",
+    "Проверить ID", "Тестовый период", "Коэффициент неприязни", "⬅️ Назад",
 }
 
 
@@ -182,18 +182,3 @@ async def handle_user_input(message: Message, db: Database, config: Config):
         await message.answer(f"Пользователь с ID {target_id} больше не администратор")
 
     user_modes[user_id] = None
-
-
-@router.message(F.text.regexp(r'^-\d+$'), HasActiveMode())
-async def handle_negative_input(message: Message, db: Database):
-    user_id = message.from_user.id
-    mode = user_modes.get(user_id)
-
-    if mode == "set_notif_group":
-        try:
-            group_id = int(message.text.strip())
-            db.set_setting("notifications_group_id", str(group_id))
-            await message.answer(f"✅ Группа установлена: {group_id}")
-        except ValueError:
-            await message.answer("Неверный формат. Введите числовой ID группы.")
-        user_modes[user_id] = None

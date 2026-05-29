@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.types import Message, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, BufferedInputFile
 from aiogram.enums import ChatMemberStatus
 
 from database import Database
@@ -176,35 +176,6 @@ async def show_check_history(message: Message, db: Database):
             await message.answer(text[i:i + 4000])
     else:
         await message.answer(text)
-
-
-@router.message(F.text == "Уведомления")
-async def notifications_menu(message: Message, db: Database):
-    if not db.is_admin(message.from_user.id):
-        return
-
-    enabled = db.get_setting("notifications_enabled", "1") == "1"
-    group_id = db.get_setting("notifications_group_id", "не установлен")
-    status_str = "✅ Включены" if enabled else "❌ Выключены"
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="❌ Выключить" if enabled else "✅ Включить",
-            callback_data="toggle_notifications"
-        )],
-        [InlineKeyboardButton(text="Установить группу", callback_data="set_notif_group")],
-        [InlineKeyboardButton(text="История уведомлений", callback_data="notif_history")],
-    ])
-
-    await message.answer(
-        f"🔔 Уведомления в группу\n\n"
-        f"Статус: {status_str}\n"
-        f"Группа: {group_id}\n\n"
-        f"Бот проверяет коэффициенты каждые 6 часов и отправляет предупреждение "
-        f"девушкам в группу если обнаружен риск. Повторное уведомление по одному "
-        f"аккаунту — не чаще раза в 24 часа.",
-        reply_markup=kb
-    )
 
 
 @router.message(F.text == "Агентства")

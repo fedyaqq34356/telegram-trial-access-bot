@@ -66,21 +66,6 @@ class Database:
                     tfa_required INTEGER DEFAULT 0
                 )
             ''')
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS risk_notifications (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    anchor_id TEXT NOT NULL UNIQUE,
-                    agency TEXT,
-                    last_notified_at TEXT,
-                    risk_cleared INTEGER DEFAULT 0
-                )
-            ''')
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS bot_settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            ''')
             cursor = conn.execute('SELECT COUNT(*) FROM agencies')
             if cursor.fetchone()[0] == 0:
                 try:
@@ -244,55 +229,3 @@ class Database:
             raise ValueError(f"Invalid field: {field}")
         with self._get_connection() as conn:
             conn.execute(f'UPDATE agencies SET {field} = ? WHERE id = ?', (value, agency_id))
-
-    def should_notify(self, anchor_id: str) -> bool:
-        with self._get_connection() as conn:
-            cursor = conn.execute(
-                "SELECT last_notified_at, risk_cleared FROM risk_notifications WHERE anchor_id = ?",
-                (anchor_id,)
-            )
-            row = cursor.fetchone()
-            if not row:
-                return True
-            if row["risk_cleared"]:
-                return True
-            last = datetime.fromisoformat(row["last_notified_at"])
-            return datetime.now() - last > timedelta(hours=24)
-
-    def mark_risk_notified(self, anchor_id: str, agency: str):
-        with self._get_connection() as conn:
-            conn.execute("""
-                INSERT INTO risk_notifications (anchor_id, agency, last_notified_at, risk_cleared)
-                VALUES (?, ?, ?, 0)
-                ON CONFLICT(anchor_id) DO UPDATE SET
-                    last_notified_at = excluded.last_notified_at,
-                    agency = excluded.agency,
-                    risk_cleared = 0
-            """, (anchor_id, agency, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-
-    def clear_risk(self, anchor_id: str):
-        with self._get_connection() as conn:
-            conn.execute(
-                "UPDATE risk_notifications SET risk_cleared = 1 WHERE anchor_id = ?",
-                (anchor_id,)
-            )
-
-    def get_notification_history(self, limit: int = 20):
-        with self._get_connection() as conn:
-            return conn.execute(
-                "SELECT * FROM risk_notifications ORDER BY last_notified_at DESC LIMIT ?",
-                (limit,)
-            ).fetchall()
-
-    def get_setting(self, key: str, default: str = None) -> str:
-        with self._get_connection() as conn:
-            cursor = conn.execute("SELECT value FROM bot_settings WHERE key = ?", (key,))
-            row = cursor.fetchone()
-            return row["value"] if row else default
-
-    def set_setting(self, key: str, value: str):
-        with self._get_connection() as conn:
-            conn.execute(
-                "INSERT INTO bot_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (key, value)
-            )

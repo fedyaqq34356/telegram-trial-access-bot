@@ -72,7 +72,7 @@ def format_check_result(host: dict) -> str:
     monthly_income = int(host["MonthlyIncome"])
     risks = check_risk(grade, down_rate, real_down_rate)
 
-    monthly_rank = host.get("MontlyRank")
+    monthly_rank = host.get("MonthlyIncomeRanking")
 
     text = f"Ваш ID: {host['DisplayAccountId']}\n"
 

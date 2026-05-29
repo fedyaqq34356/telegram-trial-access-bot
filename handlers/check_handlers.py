@@ -23,10 +23,10 @@ CHECK_COOLDOWN = 21600  # 6 часов
 GRADE_LIMITS = {"S": None, "A": 0.25, "B": 0.18, "C": 0.18, "D": 0.12}
 PUNISHMENTS = {
     "S": None,
-    "A": "⛔ Бан на 1 день",
-    "B": "⛔ Бан на 3 дня",
-    "C": "⛔ Бан на 7 дней",
-    "D": "⛔ Перманентный бан аккаунта",
+    "A": "Бан на 1 день",
+    "B": "Бан на 3 дня",
+    "C": "Бан на 7 дней",
+    "D": "Перманентный бан аккаунта",
 }
 GRADE_DESCRIPTIONS = {
     "S": "заработок от 45 000 coins и выше",
@@ -35,7 +35,6 @@ GRADE_DESCRIPTIONS = {
     "C": "заработок от 2 000 до 6 999 coins",
     "D": "заработок менее 2 000 coins за последние 30 дней",
 }
-GRADE_EMOJIS = {"S": "💎", "A": "🥇", "B": "🥈", "C": "🥉", "D": "📉"}
 
 
 def is_valid_anchor_id(text: str) -> bool:
@@ -75,59 +74,51 @@ def format_check_result(host: dict) -> str:
 
     monthly_rank = host.get("MonthlyIncomeRanking")
     limit = GRADE_LIMITS.get(grade)
-    grade_emoji = GRADE_EMOJIS.get(grade, "🎖")
 
-    # Иконки для коэффициентов
-    profile_ok = down_rate < 0.18
-    profile_icon = "✅" if profile_ok else "❌"
-
+    profile_icon = "✅" if down_rate < 0.18 else "❌"
     monthly_ok = (limit is None) or (real_down_rate < limit)
     monthly_icon = "✅" if monthly_ok else "❌"
 
-    SEP = "━━━━━━━━━━━━━━"
-
     lines = []
-    lines.append("📊 <b>Информация по аккаунту</b>")
-    lines.append("")
-    lines.append(f"🆔 <b>ID:</b> {host['DisplayAccountId']}")
 
+    lines.append(f"🆔 Ваш ID: {host['DisplayAccountId']}")
     if monthly_rank is not None:
-        lines.append(f"🏆 <b>Место в рейтинге приложения:</b> {monthly_rank} место")
-
-    lines.append(f"🏢 <b>Агентство:</b> {host['Agent']}")
-    lines.append(SEP)
-
-    lines.append(f"📈 <b>Коэффициент в профиле:</b> {down_rate} {profile_icon}")
-    lines.append(f"📉 <b>Коэффициент за последние 30 дней:</b> {real_down_rate} {monthly_icon}")
-    lines.append(f"💰 <b>Заработок за последние 30 дней:</b> {monthly_income:,} coins")
-    lines.append(f"{grade_emoji} <b>Ваш уровень:</b> {grade} — {GRADE_DESCRIPTIONS[grade]}")
-    lines.append(SEP)
+        lines.append(f"🏆 Место в рейтинге приложения: {monthly_rank} место")
+    lines.append(f"🏢 Агентство: {host['Agent']}")
+    lines.append("")
+    lines.append(f"Ваш уровень: <b>{grade}</b> — {GRADE_DESCRIPTIONS[grade]}")
+    lines.append(f"Заработок за последние 30 дней: <b>{monthly_income:,} coins</b>")
+    lines.append(f"Коэффициент в профиле: <b>{down_rate}</b> {profile_icon}")
+    lines.append(f"Коэффициент за последние 30 дней: <b>{real_down_rate}</b> {monthly_icon}")
 
     if not raw_risks:
-        lines.append("✅ <b>Всё в норме!</b> Так держать 🌟")
+        lines.append("")
+        lines.append("✅ Всё в норме! Так держать 🌟")
     else:
+        lines.append("")
         lines.append("⚠️ <b>Внимание! Вы находитесь в зоне риска</b>")
         lines.append("")
         lines.append("Причина:")
-        lines.append("")
+
         for risk in raw_risks:
             if risk == "profile_rate":
-                lines.append("🔸 Коэффициент в профиле превышает допустимый лимит.")
-                lines.append("   Допустимый лимит: до <b>0.18</b>")
-                lines.append(f"   Ваш коэффициент: <b>{down_rate}</b>")
+                lines.append(f"🔸 Коэффициент в профиле превышает допустимый лимит.")
+                lines.append(f"Допустимый лимит: до <b>0.18</b>")
+                lines.append(f"Ваш коэффициент: <b>{down_rate}</b>")
             elif risk.startswith("monthly_rate:"):
                 lim_val = risk.split(":")[1]
+                lines.append(f"")
                 lines.append(f"🔸 Коэффициент за последние 30 дней превышает допустимый лимит для уровня <b>{grade}</b>.")
-                lines.append(f"   Допустимый лимит: до <b>{lim_val}</b>")
-                lines.append(f"   Ваш коэффициент за 30 дней: <b>{real_down_rate}</b>")
+                lines.append(f"Допустимый лимит: до <b>{lim_val}</b>")
+                lines.append(f"Ваш коэффициент за 30 дней: <b>{real_down_rate}</b>")
 
         punishment = PUNISHMENTS.get(grade)
         if punishment:
-            lines.append(SEP)
-            lines.append(f"⛔ <b>Возможное наказание:</b>")
-            lines.append(f"   {punishment}")
+            lines.append("")
+            lines.append(f"⛔ Возможное наказание:")
+            lines.append(f"{punishment}")
 
-        lines.append(SEP)
+        lines.append("")
         lines.append("📌 Рекомендуется как можно быстрее улучшить показатели, чтобы снизить риск блокировки.")
 
     return "\n".join(lines)

@@ -14,11 +14,11 @@ from state import user_modes, admin_check_mode, pending_tfa, tfa_waitlist
 router = Router()
 logger = logging.getLogger(__name__)
 
-pending_parsers: dict = {}  # agency_name -> HaloLiveParser instance (awaiting 2FA)
-active_sessions: dict = {}  # agency_name -> logged-in HaloLiveParser instance
-user_last_check: dict = {}  # user_id -> timestamp of last check
+pending_parsers: dict = {}
+active_sessions: dict = {}
+user_last_check: dict = {}
 
-CHECK_COOLDOWN = 15  # seconds between checks for non-admin users
+CHECK_COOLDOWN = 15
 
 GRADE_LIMITS = {"S": None, "A": 0.25, "B": 0.18, "C": 0.18, "D": 0.12}
 PUNISHMENTS = {
@@ -72,8 +72,14 @@ def format_check_result(host: dict) -> str:
     monthly_income = int(host["MonthlyIncome"])
     risks = check_risk(grade, down_rate, real_down_rate)
 
-    text = (
-        f"Ваш ID: {host['DisplayAccountId']}\n"
+    monthly_rank = host.get("MontlyRank") or host.get("MonthlyRank")
+
+    text = f"Ваш ID: {host['DisplayAccountId']}\n"
+
+    if monthly_rank:
+        text += f"Ты находишься на {monthly_rank} месте в приложении на сегодняшний день\n"
+
+    text += (
         f"Агентство: {host['Agent']}\n\n"
         f"Коэффициент в профиле: {down_rate}\n"
         f"Коэффициент за последние 30 дней: {real_down_rate}\n\n"
@@ -95,7 +101,6 @@ def format_check_result(host: dict) -> str:
 
 async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
                             user_tg_id: int, user_username, agency_name: str):
-    """Ищет девушку по ID и отправляет результат пользователю."""
     try:
         host = await asyncio.to_thread(parser.find_by_id, anchor_id)
     except Exception as e:
@@ -149,7 +154,6 @@ async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
         pending_tfa.pop(aid, None)
     pending_parsers.pop(agency_name, None)
 
-    # Уведомляем основного пользователя
     try:
         await bot.send_message(
             user_tg_id,
@@ -158,7 +162,6 @@ async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
     except Exception as e:
         logger.error(f"Cannot notify user {user_tg_id} about cancellation: {e}")
 
-    # Уведомляем всех из очереди ожидания
     waitlist = tfa_waitlist.pop(agency_name, [])
     for waiter in waitlist:
         try:
@@ -240,10 +243,8 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
             pending_tfa.pop(admin_id, None)
         pending_parsers.pop(agency_name, None)
 
-        # Обрабатываем основной запрос
         await _process_and_send(bot, db, parser, anchor_id, user_tg_id, user_username, agency_name)
 
-        # Обрабатываем всех из очереди ожидания
         waitlist = tfa_waitlist.pop(agency_name, [])
         for waiter in waitlist:
             await _process_and_send(
@@ -290,11 +291,11 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
 
     had_timeout = False
     had_network_error = False
+    tfa_requested = False
 
     for agency in agencies:
         agency_name = agency["name"]
 
-        # Try reusing an existing session first
         existing = active_sessions.get(agency_name)
         if existing:
             try:
@@ -306,30 +307,22 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
             if host is SESSION_EXPIRED:
                 logger.info(f"Session expired for agency {agency_name}, will re-login")
                 active_sessions.pop(agency_name, None)
-                # Fall through to fresh login below
             elif host is not None:
                 result_text = format_check_result(host)
                 grade = get_grade(host["MonthlyIncome"])
                 risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
                 db.save_check(
-                    tg_id=user_id,
-                    username=user_username,
-                    anchor_id=anchor_id,
+                    tg_id=user_id, username=user_username, anchor_id=anchor_id,
                     agency=host.get("Agent", agency_name),
-                    down_rate=host["DownRate"],
-                    real_down_rate=host["RealDownRate"],
-                    monthly_income=host["MonthlyIncome"],
-                    grade=grade,
-                    has_risk=len(risks) > 0,
-                    found=True
+                    down_rate=host["DownRate"], real_down_rate=host["RealDownRate"],
+                    monthly_income=host["MonthlyIncome"], grade=grade,
+                    has_risk=len(risks) > 0, found=True
                 )
                 await message.answer(result_text)
                 return
             else:
-                # host is None — ID not found in this agency, try next
                 continue
 
-        # Если 2FA уже ожидается для этого агентства — добавляем в очередь
         if agency_name in pending_parsers:
             if agency_name not in tfa_waitlist:
                 tfa_waitlist[agency_name] = []
@@ -341,7 +334,6 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
             await message.answer("⏳ Требуется дополнительная проверка. Ожидайте ответа...")
             return
 
-        # No valid cached session — create a new one and log in
         parser = HaloLiveParser(
             url=agency["url"],
             account=agency["account"],
@@ -369,32 +361,35 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
                 grade = get_grade(host["MonthlyIncome"])
                 risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
                 db.save_check(
-                    tg_id=user_id,
-                    username=user_username,
-                    anchor_id=anchor_id,
+                    tg_id=user_id, username=user_username, anchor_id=anchor_id,
                     agency=host.get("Agent", agency_name),
-                    down_rate=host["DownRate"],
-                    real_down_rate=host["RealDownRate"],
-                    monthly_income=host["MonthlyIncome"],
-                    grade=grade,
-                    has_risk=len(risks) > 0,
-                    found=True
+                    down_rate=host["DownRate"], real_down_rate=host["RealDownRate"],
+                    monthly_income=host["MonthlyIncome"], grade=grade,
+                    has_risk=len(risks) > 0, found=True
                 )
                 await message.answer(result_text)
                 return
 
         elif login_result == "need_tfa":
+            if tfa_requested:
+                continue
+
+            tfa_requested = True
             pending_parsers[agency_name] = parser
+
+            pending_entry = {
+                "anchor_id": anchor_id,
+                "user_tg_id": user_id,
+                "user_username": user_username,
+                "agency_name": agency_name
+            }
             for admin_id in admin_ids:
-                pending_tfa[admin_id] = {
-                    "anchor_id": anchor_id,
-                    "user_tg_id": user_id,
-                    "user_username": user_username,
-                    "agency_name": agency_name
-                }
-                tfa_kb = InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(text="❌ Отменить проверку", callback_data="cancel_2fa")
-                ]])
+                pending_tfa[admin_id] = pending_entry
+
+            tfa_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="❌ Отменить проверку", callback_data="cancel_2fa")
+            ]])
+            for admin_id in admin_ids:
                 try:
                     await bot.send_message(
                         admin_id,
@@ -423,16 +418,9 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
             continue
 
     db.save_check(
-        tg_id=user_id,
-        username=user_username,
-        anchor_id=anchor_id,
-        agency="",
-        down_rate="",
-        real_down_rate="",
-        monthly_income="",
-        grade="",
-        has_risk=False,
-        found=False
+        tg_id=user_id, username=user_username, anchor_id=anchor_id,
+        agency="", down_rate="", real_down_rate="",
+        monthly_income="", grade="", has_risk=False, found=False
     )
 
     if had_timeout:

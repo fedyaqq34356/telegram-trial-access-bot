@@ -12,11 +12,9 @@ logger = logging.getLogger(__name__)
 
 async def check_expired_trials(bot: Bot, db: Database, admin_ids: list):
     expired = db.get_expired_trials()
-    
     for user in expired:
         text = f"Пробный период завершен\n\n{format_user_info(user)}"
         keyboard = get_trial_decision(user['telegram_id'])
-        
         for admin_id in admin_ids:
             try:
                 await bot.send_message(admin_id, text, reply_markup=keyboard)
@@ -25,19 +23,16 @@ async def check_expired_trials(bot: Bot, db: Database, admin_ids: list):
 
 async def check_expiring_soon(bot: Bot, db: Database, admin_ids: list):
     expiring = db.get_users_expiring_soon(hours=24)
-    
     for user in expiring:
         text = (f"Пробный период скоро истечет\n\n"
                 f"{format_user_info(user, show_time=True)}\n\n"
                 f"Остался 1 день")
         keyboard = get_trial_decision(user['telegram_id'])
-        
         for admin_id in admin_ids:
             try:
                 await bot.send_message(admin_id, text, reply_markup=keyboard)
             except:
                 continue
-        
         db.mark_notified(user['telegram_id'])
 
 def _fetch_all_hosts(parser):
@@ -49,6 +44,27 @@ def _fetch_all_hosts(parser):
     )
     return r.json().get("data", [])
 
+BLOCKED_STATUSES = {
+    "banned", "blocked", "disabled", "frozen",
+    "ban", "block", "disable", "freeze",
+    "заблокирован", "бан",
+}
+
+def _is_account_active(host: dict) -> bool:
+    status = host.get("AccountStatus", "")
+    if status is None:
+        return True
+    status_str = str(status).strip().lower()
+    if not status_str or status_str in ("", "0", "normal", "active", "ok", "enabled"):
+        return True
+    if status_str in BLOCKED_STATUSES:
+        return False
+    try:
+        if int(status_str) != 0:
+            return False
+    except (ValueError, TypeError):
+        pass
+    return True
 
 async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
     from handlers.check_handlers import get_grade, check_risk, active_sessions
@@ -101,6 +117,12 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
         for host in all_hosts:
             try:
                 anchor_id = str(host.get("DisplayAccountId", ""))
+
+                if not _is_account_active(host):
+                    logger.debug(f"Skipping blocked account {anchor_id} (AccountStatus={host.get('AccountStatus')})")
+                    db.clear_risk(anchor_id)
+                    continue
+
                 grade = get_grade(host["MonthlyIncome"])
                 risks = check_risk(grade, host["DownRate"], host["RealDownRate"])
 
@@ -131,26 +153,9 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
 
 def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
-    
-    scheduler.add_job(
-        check_expired_trials,
-        'interval',
-        hours=1,
-        args=[bot, db, admin_ids]
-    )
-    
-    scheduler.add_job(
-        check_expiring_soon,
-        'interval',
-        hours=1,
-        args=[bot, db, admin_ids]
-    )
 
-    scheduler.add_job(
-        check_all_agencies_for_risk,
-        'interval',
-        hours=6,
-        args=[bot, db, admin_ids]
-    )
+    scheduler.add_job(check_expired_trials, 'interval', hours=1, args=[bot, db, admin_ids])
+    scheduler.add_job(check_expiring_soon, 'interval', hours=1, args=[bot, db, admin_ids])
+    scheduler.add_job(check_all_agencies_for_risk, 'interval', hours=6, args=[bot, db, admin_ids])
 
     return scheduler

@@ -10,6 +10,7 @@ from utils import format_user_info
 
 logger = logging.getLogger(__name__)
 
+
 async def check_expired_trials(bot: Bot, db: Database, admin_ids: list):
     expired = db.get_expired_trials()
     for user in expired:
@@ -18,8 +19,9 @@ async def check_expired_trials(bot: Bot, db: Database, admin_ids: list):
         for admin_id in admin_ids:
             try:
                 await bot.send_message(admin_id, text, reply_markup=keyboard)
-            except:
+            except Exception:
                 continue
+
 
 async def check_expiring_soon(bot: Bot, db: Database, admin_ids: list):
     expiring = db.get_users_expiring_soon(hours=24)
@@ -31,9 +33,10 @@ async def check_expiring_soon(bot: Bot, db: Database, admin_ids: list):
         for admin_id in admin_ids:
             try:
                 await bot.send_message(admin_id, text, reply_markup=keyboard)
-            except:
+            except Exception:
                 continue
         db.mark_notified(user['telegram_id'])
+
 
 def _fetch_all_hosts(parser):
     r = parser.session.get(
@@ -44,11 +47,6 @@ def _fetch_all_hosts(parser):
     )
     return r.json().get("data", [])
 
-BLOCKED_STATUSES = {
-    "banned", "blocked", "disabled", "frozen",
-    "ban", "block", "disable", "freeze",
-    "заблокирован", "бан",
-}
 
 def _is_account_active(host: dict) -> bool:
     status = host.get("AccountStatus", "")
@@ -57,7 +55,8 @@ def _is_account_active(host: dict) -> bool:
     status_str = str(status).strip().lower()
     if not status_str or status_str in ("", "0", "normal", "active", "ok", "enabled"):
         return True
-    if status_str in BLOCKED_STATUSES:
+    blocked = {"banned", "blocked", "disabled", "frozen", "ban", "block", "disable", "freeze"}
+    if status_str in blocked:
         return False
     try:
         if int(status_str) != 0:
@@ -65,6 +64,7 @@ def _is_account_active(host: dict) -> bool:
     except (ValueError, TypeError):
         pass
     return True
+
 
 async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
     from handlers.check_handlers import get_grade, check_risk, active_sessions
@@ -80,6 +80,8 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
 
     group_chat_id = int(group_chat_id_str)
     agencies = db.get_all_agencies()
+
+    at_risk = []
 
     for agency in agencies:
         agency_name = agency["name"]
@@ -119,12 +121,18 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
                 anchor_id = str(host.get("DisplayAccountId", ""))
 
                 if not _is_account_active(host):
-                    logger.debug(f"Skipping blocked account {anchor_id} (AccountStatus={host.get('AccountStatus')})")
                     db.clear_risk(anchor_id)
                     continue
 
-                grade = get_grade(host["MonthlyIncome"])
-                risks = check_risk(grade, host["DownRate"], host["RealDownRate"])
+                down_rate = host.get("DownRate")
+                real_down_rate = host.get("RealDownRate")
+                monthly_income = host.get("MonthlyIncome")
+
+                if down_rate is None or real_down_rate is None or monthly_income is None:
+                    continue
+
+                grade = get_grade(monthly_income)
+                risks = check_risk(grade, float(down_rate), float(real_down_rate))
 
                 if not risks:
                     db.clear_risk(anchor_id)
@@ -133,22 +141,49 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
                 if not db.should_notify(anchor_id):
                     continue
 
-                msg = (
-                    f"⚠️ Внимание! Аккаунт в зоне риска\n\n"
-                    f"ID: {anchor_id}\n"
-                    f"Nickname: {host.get('AnchorName') or host.get('NickName', '—')}\n"
-                    f"Агентство: {host.get('Agent', agency_name)}\n\n"
-                    f"Причина:\n" + "\n".join(risks) + "\n\n"
-                    f"Срочно проверь свой коэффициент в боте и начни исправлять показатели.\n\n"
-                    f"Если не обратить внимание на ситуацию, аккаунт могут заблокировать ⛔"
-                )
-
-                await bot.send_message(group_chat_id, msg)
+                at_risk.append({
+                    "anchor_id": anchor_id,
+                    "nickname": host.get("NickName") or host.get("AnchorName", "—"),
+                    "agency": host.get("Agent", agency_name),
+                    "risks": risks,
+                })
                 db.mark_risk_notified(anchor_id, host.get("Agent", agency_name))
 
             except Exception as e:
                 logger.error(f"Error processing host {host.get('DisplayAccountId')}: {e}")
                 continue
+
+    if not at_risk:
+        return
+
+    # Отправляем одним сообщением, разбиваем если длиннее 4000 символов
+    header = "⚠️ Аккаунты в зоне риска\n\n"
+    lines = []
+    for h in at_risk:
+        block = (
+            f"👤 {h['nickname']} | ID: {h['anchor_id']}\n"
+            f"🏢 {h['agency']}\n"
+            f"Причина: {'; '.join(r.lstrip('— ') for r in h['risks'])}\n"
+        )
+        lines.append(block)
+
+    message_text = header
+    for block in lines:
+        if len(message_text) + len(block) + 1 > 4000:
+            try:
+                await bot.send_message(group_chat_id, message_text.strip())
+            except Exception as e:
+                logger.error(f"Failed to send risk summary: {e}")
+            message_text = "⚠️ Аккаунты в зоне риска (продолжение)\n\n" + block
+        else:
+            message_text += block + "\n"
+
+    if message_text.strip():
+        try:
+            message_text += "\nСрочно проверьте коэффициент в боте и начните исправлять показатели.\nЕсли не обратить внимание — аккаунт могут заблокировать ⛔"
+            await bot.send_message(group_chat_id, message_text.strip())
+        except Exception as e:
+            logger.error(f"Failed to send risk summary: {e}")
 
 
 def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler:
@@ -156,8 +191,6 @@ def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler
 
     scheduler.add_job(check_expired_trials, 'interval', hours=1, args=[bot, db, admin_ids])
     scheduler.add_job(check_expiring_soon, 'interval', hours=1, args=[bot, db, admin_ids])
-
-    # ТЕСТ: каждые 30 секунд. После теста заменить seconds=30 на hours=6
     scheduler.add_job(check_all_agencies_for_risk, 'interval', seconds=30, args=[bot, db, admin_ids])
 
     return scheduler

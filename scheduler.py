@@ -10,6 +10,9 @@ from utils import format_user_info
 
 logger = logging.getLogger(__name__)
 
+# Имя бота — измените если нужно
+
+
 
 async def check_expired_trials(bot: Bot, db: Database, admin_ids: list):
     expired = db.get_expired_trials()
@@ -49,12 +52,8 @@ def _fetch_all_hosts(parser):
 
 
 def _is_account_active(host: dict) -> bool:
-    """
-    BanStatus = "2" → активный аккаунт
-    BanStatus = "1" → заблокирован (Blocked в панели)
-    """
-    ban_status = str(host.get("BanStatus", "2")).strip()
-    return ban_status == "2"
+    """BanStatus=2 → активна, BanStatus=1 → заблокирована."""
+    return str(host.get("BanStatus", "2")).strip() == "2"
 
 
 async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
@@ -68,6 +67,7 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
     if not group_chat_id_str:
         logger.warning("notifications_group_id not set, skipping risk check")
         return
+
 
     group_chat_id = int(group_chat_id_str)
     agencies = db.get_all_agencies()
@@ -111,7 +111,6 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
             try:
                 anchor_id = str(host.get("DisplayAccountId", ""))
 
-                # BanStatus=1 → заблокирован, пропускаем
                 if not _is_account_active(host):
                     db.clear_risk(anchor_id)
                     continue
@@ -147,7 +146,7 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
         if not at_risk:
             continue
 
-        # Компактный формат: список одной строкой через 🔸
+        # Компактный список: все ID одной строкой через 🔸
         id_list = " 🔸 ".join(
             f"ID: {h['anchor_id']} (Ник: {h['nickname']})"
             for h in at_risk
@@ -157,7 +156,7 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
             f"⚠️ Агентство: <b>{agency_name}</b>\n\n"
             f"Следующие аккаунты находятся в зоне риска:\n\n"
             f"🔸 {id_list}\n\n"
-            f"Проверьте свой коэффициент в боте и примите меры для его снижения.\n\n"
+            f"Проверьте свой коэффициент в @Toshelp_bot и примите меры для его снижения.\n\n"
             f"⛔ Возможна блокировка аккаунта при нарушении лимитов"
         )
 
@@ -167,29 +166,18 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
             except Exception as e:
                 logger.error(f"Failed to send risk notification for {agency_name}: {e}")
         else:
-            # Разбиваем на части если слишком длинное
-            header = (
-                f"⚠️ Агентство: <b>{agency_name}</b>\n\n"
-                f"Следующие аккаунты находятся в зоне риска:\n\n"
-            )
             footer = (
-                f"\n\nПроверьте свой коэффициент в боте и примите меры для его снижения.\n\n"
+                f"\n\nПроверьте свой коэффициент в @Toshelp_bot и примите меры для его снижения.\n\n"
                 f"⛔ Возможна блокировка аккаунта при нарушении лимитов"
             )
-
-            current = header
+            current = f"⚠️ Агентство: <b>{agency_name}</b>\n\nСледующие аккаунты находятся в зоне риска:\n\n"
             part = 1
+
             for i, h in enumerate(at_risk):
                 entry = f"🔸 ID: {h['anchor_id']} (Ник: {h['nickname']})\n"
-                is_last = (i == len(at_risk) - 1)
-
                 if len(current) + len(entry) + len(footer) > 3800:
                     try:
-                        await bot.send_message(
-                            group_chat_id,
-                            (current + footer).strip(),
-                            parse_mode="HTML"
-                        )
+                        await bot.send_message(group_chat_id, (current + footer).strip(), parse_mode="HTML")
                     except Exception as e:
                         logger.error(f"Failed to send risk part {part} for {agency_name}: {e}")
                     part += 1
@@ -199,11 +187,7 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
 
             if current.strip():
                 try:
-                    await bot.send_message(
-                        group_chat_id,
-                        (current + footer).strip(),
-                        parse_mode="HTML"
-                    )
+                    await bot.send_message(group_chat_id, (current + footer).strip(), parse_mode="HTML")
                 except Exception as e:
                     logger.error(f"Failed to send final risk part for {agency_name}: {e}")
 
@@ -213,6 +197,7 @@ def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler
 
     scheduler.add_job(check_expired_trials, 'interval', hours=1, args=[bot, db, admin_ids])
     scheduler.add_job(check_expiring_soon, 'interval', hours=1, args=[bot, db, admin_ids])
-    scheduler.add_job(check_all_agencies_for_risk, 'interval', seconds=30, args=[bot, db, admin_ids])
+    # Проверка рисков раз в 6 часов
+    scheduler.add_job(check_all_agencies_for_risk, 'interval', hours=6, args=[bot, db, admin_ids])
 
     return scheduler

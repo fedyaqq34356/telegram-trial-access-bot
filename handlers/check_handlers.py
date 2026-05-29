@@ -1,6 +1,5 @@
 import asyncio
 import re
-import time
 import logging
 
 from aiogram import Router, F, Bot
@@ -16,9 +15,6 @@ logger = logging.getLogger(__name__)
 
 pending_parsers: dict = {}
 active_sessions: dict = {}
-user_last_check: dict = {}
-
-CHECK_COOLDOWN = 21600  # 6 часов
 
 GRADE_LIMITS = {"S": None, "A": 0.25, "B": 0.18, "C": 0.18, "D": 0.12}
 PUNISHMENTS = {
@@ -80,7 +76,6 @@ def format_check_result(host: dict) -> str:
     monthly_icon = "✅" if monthly_ok else "❌"
 
     lines = []
-
     lines.append(f"🆔 Ваш ID: {host['DisplayAccountId']}")
     if monthly_rank is not None:
         lines.append(f"🏆 Место в рейтинге приложения: {monthly_rank} место")
@@ -102,12 +97,13 @@ def format_check_result(host: dict) -> str:
 
         for risk in raw_risks:
             if risk == "profile_rate":
-                lines.append(f"🔸 Коэффициент в профиле превышает допустимый лимит.")
+                lines.append("")
+                lines.append("🔸 Коэффициент в профиле превышает допустимый лимит.")
                 lines.append(f"Допустимый лимит: до <b>0.18</b>")
                 lines.append(f"Ваш коэффициент: <b>{down_rate}</b>")
             elif risk.startswith("monthly_rate:"):
                 lim_val = risk.split(":")[1]
-                lines.append(f"")
+                lines.append("")
                 lines.append(f"🔸 Коэффициент за последние 30 дней превышает допустимый лимит для уровня <b>{grade}</b>.")
                 lines.append(f"Допустимый лимит: до <b>{lim_val}</b>")
                 lines.append(f"Ваш коэффициент за 30 дней: <b>{real_down_rate}</b>")
@@ -188,8 +184,7 @@ async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
         except Exception as e:
             logger.error(f"Cannot notify waiter {waiter['user_tg_id']}: {e}")
 
-    cancelled_count = 1 + len(waitlist)
-    await callback.message.edit_text(f"❌ Проверка отменена. Уведомлено пользователей: {cancelled_count}.")
+    await callback.message.edit_text(f"❌ Проверка отменена. Уведомлено пользователей: {1 + len(waitlist)}.")
     await callback.answer()
 
 
@@ -248,8 +243,7 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
 
     if login_result is True:
         active_sessions[agency_name] = parser
-        admin_ids = db.get_all_admins()
-        for admin_id in admin_ids:
+        for admin_id in db.get_all_admins():
             pending_tfa.pop(admin_id, None)
         pending_parsers.pop(agency_name, None)
 
@@ -259,8 +253,7 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
         for waiter in waitlist:
             await _process_and_send(bot, db, parser, waiter["anchor_id"], waiter["user_tg_id"], waiter["user_username"], agency_name)
 
-        total = 1 + len(waitlist)
-        await message.answer(f"✅ Готово. Обработано запросов: {total}. Ответы отправлены пользователям.")
+        await message.answer(f"✅ Готово. Обработано запросов: {1 + len(waitlist)}. Ответы отправлены пользователям.")
     else:
         await message.answer("❌ Неверный код 2FA. Попробуйте ввести код ещё раз:")
 
@@ -273,16 +266,7 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
         await message.answer("Пожалуйста, отправьте корректный ID (только цифры).")
         return
 
-    if not db.is_admin(user_id):
-        now = time.time()
-        last = user_last_check.get(user_id, 0)
-        if now - last < CHECK_COOLDOWN:
-            remaining_sec = int(CHECK_COOLDOWN - (now - last))
-            remaining_h = remaining_sec // 3600
-            remaining_m = (remaining_sec % 3600) // 60
-            await message.answer(f"⏳ Следующая проверка будет доступна через {remaining_h} ч. {remaining_m} мин.")
-            return
-        user_last_check[user_id] = now
+    # Лимит убран — проверять можно без ограничений
 
     anchor_id = text
     user_username = message.from_user.username

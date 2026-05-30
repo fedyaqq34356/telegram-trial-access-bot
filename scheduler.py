@@ -198,6 +198,6 @@ def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler
     scheduler.add_job(check_expired_trials, 'interval', hours=1, args=[bot, db, admin_ids])
     scheduler.add_job(check_expiring_soon, 'interval', hours=1, args=[bot, db, admin_ids])
     # Проверка рисков раз в 6 часов
-    scheduler.add_job(check_all_agencies_for_risk, 'interval', hours=6, args=[bot, db, admin_ids])
+    scheduler.add_job(check_all_agencies_for_risk, 'interval', minutes=2, args=[bot, db, admin_ids])
 
     return scheduler

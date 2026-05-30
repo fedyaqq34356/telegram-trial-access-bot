@@ -94,7 +94,6 @@ def format_check_result(host: dict) -> str:
         lines.append("⚠️ <b>Внимание! Вы находитесь в зоне риска</b>")
         lines.append("")
         lines.append("Причина:")
-
         for risk in raw_risks:
             if risk == "profile_rate":
                 lines.append("")
@@ -107,17 +106,58 @@ def format_check_result(host: dict) -> str:
                 lines.append(f"🔸 Коэффициент за последние 30 дней превышает допустимый лимит для уровня <b>{grade}</b>.")
                 lines.append(f"Допустимый лимит: до <b>{lim_val}</b>")
                 lines.append(f"Ваш коэффициент за 30 дней: <b>{real_down_rate}</b>")
-
         punishment = PUNISHMENTS.get(grade)
         if punishment:
             lines.append("")
             lines.append(f"⛔ Возможное наказание:")
             lines.append(f"{punishment}")
-
         lines.append("")
         lines.append("📌 Рекомендуется как можно быстрее улучшить показатели, чтобы снизить риск блокировки.")
 
     return "\n".join(lines)
+
+
+def _save_session(db: Database, agency_name: str, parser: HaloLiveParser):
+    """Сохраняет куки сессии в базу данных."""
+    try:
+        cookies = parser.get_cookies()
+        phpsessid = cookies.get("PHPSESSID", "")
+        acuid = cookies.get("acuid", "")
+        if phpsessid or acuid:
+            db.save_agency_session(agency_name, phpsessid, acuid)
+            logger.info(f"Session saved for {agency_name}")
+    except Exception as e:
+        logger.error(f"Failed to save session for {agency_name}: {e}")
+
+
+def restore_sessions(db: Database, agencies: list):
+    """
+    Восстанавливает сессии из базы при старте бота.
+    Вызывать из main.py после инициализации.
+    """
+    for agency in agencies:
+        agency_name = agency["name"]
+        saved = db.get_agency_session(agency_name)
+        if not saved:
+            continue
+        phpsessid = saved["phpsessid"]
+        acuid = saved["acuid"]
+        if not phpsessid and not acuid:
+            continue
+        parser = HaloLiveParser(
+            url=agency["url"],
+            account=agency["account"],
+            password=agency["password"],
+            aemail=agency["aemail"],
+            apassword=agency["apassword"]
+        )
+        ok = parser.restore_from_cookies(phpsessid, acuid)
+        if ok:
+            active_sessions[agency_name] = parser
+            logger.info(f"Restored session for {agency_name} from DB")
+        else:
+            db.delete_agency_session(agency_name)
+            logger.warning(f"Saved session for {agency_name} is expired, deleted")
 
 
 async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
@@ -159,7 +199,6 @@ async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
 async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
     admin_id = callback.from_user.id
     pending = pending_tfa.get(admin_id)
-
     if not pending:
         await callback.message.edit_text("❌ Нет активной проверки.")
         await callback.answer()
@@ -175,7 +214,7 @@ async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
     try:
         await bot.send_message(user_tg_id, "⚠️ Проверка отменена. Попробуйте отправить ID ещё раз позже.")
     except Exception as e:
-        logger.error(f"Cannot notify user {user_tg_id} about cancellation: {e}")
+        logger.error(f"Cannot notify user {user_tg_id}: {e}")
 
     waitlist = tfa_waitlist.pop(agency_name, [])
     for waiter in waitlist:
@@ -243,6 +282,9 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
 
     if login_result is True:
         active_sessions[agency_name] = parser
+        # Сохраняем сессию в базу — теперь после перезапуска не нужен 2FA
+        _save_session(db, agency_name, parser)
+
         for admin_id in db.get_all_admins():
             pending_tfa.pop(admin_id, None)
         pending_parsers.pop(agency_name, None)
@@ -265,8 +307,6 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
     if not is_valid_anchor_id(text):
         await message.answer("Пожалуйста, отправьте корректный ID (только цифры).")
         return
-
-    # Лимит убран — проверять можно без ограничений
 
     anchor_id = text
     user_username = message.from_user.username
@@ -292,11 +332,12 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
             try:
                 host = await asyncio.to_thread(existing.find_by_id, anchor_id)
             except Exception as e:
-                logger.error(f"find_by_id exception (cached session) for agency {agency_name}: {e}")
+                logger.error(f"find_by_id exception (cached session) for {agency_name}: {e}")
                 host = None
 
             if host is SESSION_EXPIRED:
                 active_sessions.pop(agency_name, None)
+                db.delete_agency_session(agency_name)
             elif host is not None:
                 result_text = format_check_result(host)
                 grade = get_grade(host["MonthlyIncome"])
@@ -335,15 +376,16 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
         try:
             login_result = await asyncio.to_thread(parser.login, None)
         except Exception as e:
-            logger.error(f"Login exception for agency {agency_name}: {e}")
+            logger.error(f"Login exception for {agency_name}: {e}")
             continue
 
         if login_result is True:
             active_sessions[agency_name] = parser
+            _save_session(db, agency_name, parser)
             try:
                 host = await asyncio.to_thread(parser.find_by_id, anchor_id)
             except Exception as e:
-                logger.error(f"find_by_id exception for agency {agency_name}: {e}")
+                logger.error(f"find_by_id exception for {agency_name}: {e}")
                 continue
 
             if host and host is not SESSION_EXPIRED:

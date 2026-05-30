@@ -18,7 +18,6 @@ logging.basicConfig(
 
 async def start_command(message, db: Database):
     user_id = message.from_user.id
-
     if db.is_admin(user_id):
         await message.answer(
             "Админ-панель бота управления участниками",
@@ -34,27 +33,32 @@ async def start_command(message, db: Database):
 async def main():
     config = Config.from_env()
     db = Database()
-    
+
     bot = Bot(token=config.bot_token)
     dp = Dispatcher()
-    
+
     dp.message.register(start_command, Command("start"))
     dp.include_router(router)
-    
+
     dp['db'] = db
     dp['config'] = config
-    
+
     admin_ids = db.get_all_admins()
     if not admin_ids:
         logging.warning("Нет администраторов в базе данных")
-        logging.warning("Добавьте администратора вручную в таблицу admins")
     else:
         logging.info(f"Загружено {len(admin_ids)} администратор(ов)")
-    
+
+    # Восстанавливаем сессии агентств из базы данных
+    from handlers.check_handlers import restore_sessions
+    agencies = db.get_all_agencies()
+    restore_sessions(db, agencies)
+    logging.info(f"Попытка восстановления сессий для {len(agencies)} агентств")
+
     scheduler = setup_scheduler(bot, db, admin_ids)
     scheduler.start()
     logging.info("Планировщик запущен")
-    
+
     for admin_id in admin_ids:
         try:
             await bot.send_message(
@@ -64,7 +68,7 @@ async def main():
             )
         except:
             pass
-    
+
     logging.info("Бот запущен")
     try:
         await dp.start_polling(bot)

@@ -118,7 +118,6 @@ def format_check_result(host: dict) -> str:
 
 
 def _save_session(db: Database, agency_name: str, parser: HaloLiveParser):
-    """Сохраняет куки сессии в базу данных."""
     try:
         cookies = parser.get_cookies()
         phpsessid = cookies.get("PHPSESSID", "")
@@ -131,10 +130,6 @@ def _save_session(db: Database, agency_name: str, parser: HaloLiveParser):
 
 
 def restore_sessions(db: Database, agencies: list):
-    """
-    Восстанавливает сессии из базы при старте бота.
-    Вызывать из main.py после инициализации.
-    """
     for agency in agencies:
         agency_name = agency["name"]
         saved = db.get_agency_session(agency_name)
@@ -193,6 +188,18 @@ async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
             await bot.send_message(user_tg_id, "ID не найден. Проверьте правильность ID и попробуйте ещё раз.")
         except Exception as e:
             logger.error(f"Cannot send not-found to user {user_tg_id}: {e}")
+
+
+async def _search_in_agency(agency_name: str, parser, anchor_id: str) -> dict | None:
+    """Ищет девушку в одном агентстве. Возвращает host dict или None."""
+    try:
+        host = await asyncio.to_thread(parser.find_by_id, anchor_id)
+        if host is SESSION_EXPIRED:
+            return SESSION_EXPIRED
+        return host
+    except Exception as e:
+        logger.error(f"find_by_id error in {agency_name}: {e}")
+        return None
 
 
 @router.callback_query(F.data == "cancel_2fa")
@@ -282,7 +289,6 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
 
     if login_result is True:
         active_sessions[agency_name] = parser
-        # Сохраняем сессию в базу — теперь после перезапуска не нужен 2FA
         _save_session(db, agency_name, parser)
 
         for admin_id in db.get_all_admins():
@@ -320,25 +326,29 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
         await message.answer("⚠️ Нет подключённых агентств. Обратитесь к администратору.")
         return
 
-    had_timeout = False
-    had_network_error = False
-    tfa_requested = False
+    # ── Шаг 1: параллельный поиск во всех агентствах с активными сессиями ──
+    agencies_with_session = [a for a in agencies if a["name"] in active_sessions]
+    agencies_without_session = [a for a in agencies if a["name"] not in active_sessions]
 
-    for agency in agencies:
-        agency_name = agency["name"]
+    if agencies_with_session:
+        tasks = [
+            _search_in_agency(a["name"], active_sessions[a["name"]], anchor_id)
+            for a in agencies_with_session
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        existing = active_sessions.get(agency_name)
-        if existing:
-            try:
-                host = await asyncio.to_thread(existing.find_by_id, anchor_id)
-            except Exception as e:
-                logger.error(f"find_by_id exception (cached session) for {agency_name}: {e}")
-                host = None
-
-            if host is SESSION_EXPIRED:
+        for agency, result in zip(agencies_with_session, results):
+            agency_name = agency["name"]
+            if isinstance(result, Exception):
+                continue
+            if result is SESSION_EXPIRED:
                 active_sessions.pop(agency_name, None)
                 db.delete_agency_session(agency_name)
-            elif host is not None:
+                agencies_without_session.append(agency)
+                continue
+            if result is not None:
+                # Нашли девушку!
+                host = result
                 result_text = format_check_result(host)
                 grade = get_grade(host["MonthlyIncome"])
                 raw_risks = check_risk(grade, float(host["DownRate"]), float(host["RealDownRate"]))
@@ -351,9 +361,16 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
                 )
                 await message.answer(result_text, parse_mode="HTML")
                 return
-            else:
-                continue
 
+    # ── Шаг 2: агентства без сессии — логинимся (2FA или обычный) ──
+    had_timeout = False
+    had_network_error = False
+    tfa_requested = False
+
+    for agency in agencies_without_session:
+        agency_name = agency["name"]
+
+        # Уже ждём 2FA для этого агентства
         if agency_name in pending_parsers:
             if agency_name not in tfa_waitlist:
                 tfa_waitlist[agency_name] = []
@@ -432,13 +449,10 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
 
         elif login_result == "timeout":
             had_timeout = True
-            continue
         elif login_result == "network":
             had_network_error = True
-            continue
-        else:
-            continue
 
+    # ── Нигде не нашли ──
     db.save_check(
         tg_id=user_id, username=user_username, anchor_id=anchor_id,
         agency="", down_rate="", real_down_rate="",

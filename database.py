@@ -282,7 +282,7 @@ class Database:
             if row["risk_cleared"]:
                 return True
             last = datetime.fromisoformat(row["last_notified_at"])
-            return datetime.now() - last > timedelta(minutes=2)
+            return datetime.now() - last > timedelta(hours=24)
 
     def mark_risk_notified(self, anchor_id: str, agency: str):
         with self._get_connection() as conn:

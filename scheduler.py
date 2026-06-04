@@ -1,7 +1,10 @@
 import asyncio
 import logging
+from datetime import datetime, timezone, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from aiogram import Bot
 
 from database import Database
@@ -9,6 +12,8 @@ from keyboards import get_trial_decision
 from utils import format_user_info
 
 logger = logging.getLogger(__name__)
+
+KYIV_TZ = timezone(timedelta(hours=3))
 
 
 async def check_expired_trials(bot: Bot, db: Database, admin_ids: list):
@@ -26,9 +31,11 @@ async def check_expired_trials(bot: Bot, db: Database, admin_ids: list):
 async def check_expiring_soon(bot: Bot, db: Database, admin_ids: list):
     expiring = db.get_users_expiring_soon(hours=24)
     for user in expiring:
-        text = (f"Пробный период скоро истечет\n\n"
-                f"{format_user_info(user, show_time=True)}\n\n"
-                f"Остался 1 день")
+        text = (
+            f"Пробный период скоро истечет\n\n"
+            f"{format_user_info(user, show_time=True)}\n\n"
+            f"Остался 1 день"
+        )
         keyboard = get_trial_decision(user['telegram_id'])
         for admin_id in admin_ids:
             try:
@@ -42,7 +49,10 @@ def _fetch_all_hosts(parser):
     r = parser.session.get(
         f"{parser.url}/anchor/anchorManage/loadExtAnchorInfoList",
         params={"page": 1, "limit": 9999},
-        headers={**parser.headers, "Referer": f"{parser.url}/anchor/anchorManage/waibu_anchorInfo?in_iframe=1"},
+        headers={
+            **parser.headers,
+            "Referer": f"{parser.url}/anchor/anchorManage/waibu_anchorInfo?in_iframe=1"
+        },
         timeout=30
     )
     return r.json().get("data", [])
@@ -52,8 +62,7 @@ def _is_account_active(host: dict) -> bool:
     return str(host.get("BanStatus", "2")).strip() == "2"
 
 
-async def _check_one_agency(agency, bot: Bot, db: Database, group_chat_id: int):
-    """Проверяет одно агентство и сразу отправляет уведомление. Запускается параллельно."""
+async def _check_one_agency(agency, bot: Bot, db: Database, group_chat_id: int, force_notify: bool):
     from handlers.check_handlers import get_grade, check_risk, active_sessions
     from parser import HaloLiveParser
 
@@ -113,7 +122,7 @@ async def _check_one_agency(agency, bot: Bot, db: Database, group_chat_id: int):
                 db.clear_risk(anchor_id)
                 continue
 
-            if not db.should_notify(anchor_id):
+            if not force_notify and not db.should_notify(anchor_id):
                 continue
 
             nickname = host.get("NickName") or host.get("AnchorName") or "—"
@@ -130,7 +139,6 @@ async def _check_one_agency(agency, bot: Bot, db: Database, group_chat_id: int):
     if not at_risk:
         return
 
-    # Каждая девушка на отдельной строке
     header = (
         f"⚠️ Агентство: <b>{agency_name}</b>\n\n"
         f"Следующие аккаунты находятся в зоне риска:\n\n"
@@ -152,7 +160,6 @@ async def _check_one_agency(agency, bot: Bot, db: Database, group_chat_id: int):
         except Exception as e:
             logger.error(f"Failed to send risk notification for {agency_name}: {e}")
     else:
-        # Разбиваем на части если очень много девушек
         current_lines = []
         current_len = len(header) + len(footer)
         part = 1
@@ -162,7 +169,11 @@ async def _check_one_agency(agency, bot: Bot, db: Database, group_chat_id: int):
             if current_len + len(line) > 3800:
                 chunk_header = header if part == 1 else f"⚠️ Агентство: <b>{agency_name}</b> (продолжение {part})\n\n"
                 try:
-                    await bot.send_message(group_chat_id, (chunk_header + "".join(current_lines) + footer).strip(), parse_mode="HTML")
+                    await bot.send_message(
+                        group_chat_id,
+                        (chunk_header + "".join(current_lines) + footer).strip(),
+                        parse_mode="HTML"
+                    )
                 except Exception as e:
                     logger.error(f"Failed to send risk part {part} for {agency_name}: {e}")
                 part += 1
@@ -175,12 +186,16 @@ async def _check_one_agency(agency, bot: Bot, db: Database, group_chat_id: int):
         if current_lines:
             chunk_header = header if part == 1 else f"⚠️ Агентство: <b>{agency_name}</b> (продолжение {part})\n\n"
             try:
-                await bot.send_message(group_chat_id, (chunk_header + "".join(current_lines) + footer).strip(), parse_mode="HTML")
+                await bot.send_message(
+                    group_chat_id,
+                    (chunk_header + "".join(current_lines) + footer).strip(),
+                    parse_mode="HTML"
+                )
             except Exception as e:
                 logger.error(f"Failed to send final risk part for {agency_name}: {e}")
 
 
-async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
+async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list, force_notify: bool = False):
     if db.get_setting("notifications_enabled", "1") != "1":
         return
 
@@ -192,18 +207,43 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list):
     group_chat_id = int(group_chat_id_str)
     agencies = db.get_all_agencies()
 
-    # Все агентства проверяются и отправляют сообщения ОДНОВРЕМЕННО
     await asyncio.gather(
-        *[_check_one_agency(agency, bot, db, group_chat_id) for agency in agencies],
+        *[_check_one_agency(agency, bot, db, group_chat_id, force_notify) for agency in agencies],
         return_exceptions=True
     )
 
 
-def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler:
-    scheduler = AsyncIOScheduler()
+async def daily_morning_check(bot: Bot, db: Database, admin_ids: list):
+    logger.info("Daily 08:30 Kyiv risk check started (force notify all)")
+    await check_all_agencies_for_risk(bot, db, admin_ids, force_notify=True)
 
-    scheduler.add_job(check_expired_trials, 'interval', hours=1, args=[bot, db, admin_ids])
-    scheduler.add_job(check_expiring_soon, 'interval', hours=1, args=[bot, db, admin_ids])
-    scheduler.add_job(check_all_agencies_for_risk, 'interval', hours=6, args=[bot, db, admin_ids])
+
+async def periodic_risk_check(bot: Bot, db: Database, admin_ids: list):
+    now_kyiv = datetime.now(KYIV_TZ)
+    if now_kyiv.hour == 8 and now_kyiv.minute < 30:
+        return
+    logger.info("Periodic 6h risk check started (new risks only)")
+    await check_all_agencies_for_risk(bot, db, admin_ids, force_notify=False)
+
+
+def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler:
+    scheduler = AsyncIOScheduler(timezone="Europe/Kyiv")
+
+    scheduler.add_job(check_expired_trials, "interval", hours=1, args=[bot, db, admin_ids])
+    scheduler.add_job(check_expiring_soon, "interval", hours=1, args=[bot, db, admin_ids])
+
+    scheduler.add_job(
+        daily_morning_check,
+        CronTrigger(hour=8, minute=30, timezone="Europe/Kyiv"),
+        args=[bot, db, admin_ids],
+        id="daily_morning_risk"
+    )
+
+    scheduler.add_job(
+        periodic_risk_check,
+        IntervalTrigger(hours=6),
+        args=[bot, db, admin_ids],
+        id="periodic_risk_check"
+    )
 
     return scheduler

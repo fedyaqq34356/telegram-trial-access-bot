@@ -17,9 +17,11 @@ APPLICATIONS_DIR = PRIVATE_ROOT / "applications"
 TESTIMONIALS_DIR = PRIVATE_ROOT / "testimonials"
 LESSONS_DIR = PRIVATE_ROOT / "lessons"
 VIDEOS_DIR = PRIVATE_ROOT / "videos"
+APPS_DIR = PRIVATE_ROOT / "apps"
 
 ALLOWED_VIDEO_EXT = {".mp4", ".webm", ".mov", ".m4v", ".ogg"}
 MAX_VIDEO_BYTES = 300 * 1024 * 1024   # 300 МБ на видео
+MAX_APK_BYTES = 500 * 1024 * 1024     # 500 МБ на APK
 
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 # что Telegram точно показывает как фото (heic не шлём в ТГ)
@@ -100,6 +102,23 @@ def save_video(item: tuple[str, str | None, bytes]) -> str:
     VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
     name = f"{uuid.uuid4().hex}{ext}"
     path = VIDEOS_DIR / name
+    path.write_bytes(data)
+    return str(path.relative_to(PRIVATE_ROOT))
+
+
+def save_app_file(item: tuple[str, str | None, bytes]) -> str:
+    """APK-файл приложения для скачивания. Публичный."""
+    filename, content_type, data = item
+    if not data:
+        raise UploadError("Пустой файл.")
+    if len(data) > MAX_APK_BYTES:
+        raise UploadError("Файл слишком большой (макс. 500 МБ).")
+    ext = Path(filename or "").suffix.lower()
+    if ext != ".apk":
+        raise UploadError("Допустим только файл APK.")
+    APPS_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex}{ext}"
+    path = APPS_DIR / name
     path.write_bytes(data)
     return str(path.relative_to(PRIVATE_ROOT))
 

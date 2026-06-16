@@ -6,7 +6,16 @@ export interface Dict {
   langName: string;
   nav: {
     home: string; about: string; start: string; training: string;
-    benefits: string; reviews: string; faq: string; contacts: string; apply: string;
+    benefits: string; reviews: string; faq: string; contacts: string; apply: string; download: string;
+  };
+  download: {
+    title: string; lead: string; androidFemale: string; androidMale: string;
+    iphoneFemale: string; iphoneMale: string; female: string; male: string;
+    btnDownload: string; btnOpen: string; soon: string;
+  };
+  instruction: {
+    eyebrow: string; title: string; lead: string; importantTitle: string; linksTitle: string;
+    dlTitle: string; dlSub: string; tgTitle: string; tgSub: string; waTitle: string; waSub: string; empty: string;
   };
   common: {
     apply: string; learnMore: string; next: string; back: string; send: string;
@@ -63,6 +72,7 @@ export interface Dict {
     fullTitle: string; fullBadge: string; fullDesc: string; fullBtn: string;
     finish: string; markComplete: string; completedMark: string;
     quickIntroSub: string; startBtn: string; quickDuration: string; nextStep: string;
+    checklistLabel: string; calloutTip: string; calloutImportant: string; calloutForbidden: string; calloutExample: string;
   };
   apply: {
     title: string; lead: string;

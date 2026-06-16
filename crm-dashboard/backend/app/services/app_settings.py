@@ -27,6 +27,9 @@ DEFAULTS = {
     "training_lessons_json": "[]",      # полное обучение: [{type:video|text|checklist, title, body|url, items}]
     "training_lessons_quick_json": "[]",  # быстрый старт (5–10 мин)
     "apply_example_video_json": "{}",     # видео-пример для заявки: {ru,en,ua} → пути videos/<uuid>
+    "app_downloads_json": "{}",           # скачать приложение: {slot:{type:link|apk, url, file}}
+    "instruction_steps_json": "[]",       # инструкция по регистрации: шаги (как уроки, мультиязычные)
+    "instruction_important_json": "[]",   # инструкция: блок «Важно» — список [{ru,en,ua}]
 
     "notify_email": "",                 # email для уведомлений о заявках (опционально)
     "owner_telegram_id": "",            # кому слать уведомления о заявках (приоритетнее config)

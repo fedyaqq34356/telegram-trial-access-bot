@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { useI18n } from "@/i18n";
 import { Section, SectionHeading } from "@/components/ui";
+import { Callouts } from "@/components/Callouts";
+import { Gallery } from "@/components/Gallery";
 import { trainingLogin, checkCoefficient, reportProgress, type Lesson, type TrainingData, type CoefficientResult } from "@/lib/api";
 import { IconLock, IconCheck, IconArrow, IconShield, IconGraduation, IconRocket, IconClock } from "@/components/icons";
 
@@ -337,18 +339,19 @@ function LessonWizard({ steps, kind, password, haloId, onBack }: { steps: Lesson
           </div>
           {step.body && <p className="text-sm text-slate-300 whitespace-pre-line">{step.body}</p>}
           {step.items && step.items.length > 0 && (
-            <ul className="space-y-2 mt-3">
-              {step.items.map((it, k) => (
-                <li key={k} className="flex items-start gap-2.5 text-sm text-slate-200">
-                  <span className="mt-0.5 w-5 h-5 rounded-full grid place-items-center bg-neon-500/15 text-neon-400 shrink-0"><IconCheck className="w-3.5 h-3.5" /></span>
-                  {it}
-                </li>
-              ))}
-            </ul>
+            <div className="mt-3">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-neon-300 mb-1.5">{t.training.checklistLabel}</div>
+              <ul className="space-y-2">
+                {step.items.map((it, k) => (
+                  <li key={k} className="flex items-start gap-2.5 text-sm text-slate-200">
+                    <span className="mt-0.5 w-5 h-5 rounded-full grid place-items-center bg-neon-500/15 text-neon-400 shrink-0"><IconCheck className="w-3.5 h-3.5" /></span>
+                    {it}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          {step.note && (
-            <div className="mt-4 text-sm text-brand-100 bg-brand-600/15 border border-brand-500/30 rounded-xl px-3 py-2.5 whitespace-pre-line">{step.note}</div>
-          )}
+          <Callouts items={step.callouts} className="mt-4" />
         </div>
         <div className="space-y-3">
           {step.video && (
@@ -356,13 +359,14 @@ function LessonWizard({ steps, kind, password, haloId, onBack }: { steps: Lesson
           )}
           {step.image && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={step.image} alt="" className="w-full rounded-xl border border-line object-contain bg-black/30 max-h-[460px]" />
+            <img src={step.image} alt="" className="mx-auto w-auto max-w-full rounded-xl border border-line max-h-[460px]" />
           )}
           {!step.video && step.type === "video" && step.url && (
             <div className="aspect-video rounded-xl overflow-hidden border border-line bg-black">
               <iframe src={toEmbed(step.url)} className="w-full h-full" allowFullScreen title={step.title} />
             </div>
           )}
+          <Gallery items={step.gallery} />
         </div>
       </div>
 

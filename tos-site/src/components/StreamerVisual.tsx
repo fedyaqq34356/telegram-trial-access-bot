@@ -51,13 +51,13 @@ export function StreamerVisual() {
       </div>
 
       {/* плавающие карточки дохода */}
-      <div className="absolute -left-8 top-16 animate-floaty hidden sm:block" style={{ animationDelay: "0.4s" }}>
+      <div className="absolute left-1 sm:-left-8 top-14 sm:top-16 animate-floaty block z-10" style={{ animationDelay: "0.4s" }}>
         <div className="glass rounded-xl2 px-3 py-2 text-xs shadow-card">
           <div className="text-slate-400">{t.home.visualPerMinute}</div>
           <div className="font-extrabold text-neon-300">$0.80+</div>
         </div>
       </div>
-      <div className="absolute -right-6 bottom-24 animate-floaty hidden sm:block" style={{ animationDelay: "1s" }}>
+      <div className="absolute right-1 sm:-right-6 bottom-20 sm:bottom-24 animate-floaty block z-10" style={{ animationDelay: "1s" }}>
         <div className="glass rounded-xl2 px-3 py-2 text-xs shadow-card">
           <div className="text-slate-400">{t.home.visualPayouts}</div>
           <div className="font-extrabold text-brand-200">{t.home.visualPayoutDays}</div>

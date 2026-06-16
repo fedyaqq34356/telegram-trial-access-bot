@@ -4,7 +4,23 @@ export const ru: Dict = {
   langName: "RU",
   nav: {
     home: "Главная", about: "О работе", start: "Как начать", training: "Обучение",
-    benefits: "Преимущества", reviews: "Отзывы", faq: "FAQ", contacts: "Контакты", apply: "Подать заявку",
+    benefits: "Преимущества", reviews: "Отзывы", faq: "FAQ", contacts: "Контакты", apply: "Подать заявку", download: "Скачать",
+  },
+  download: {
+    title: "Скачать приложение", lead: "Выбери свою версию приложения и устройство.",
+    androidFemale: "Android — женское приложение", androidMale: "Android — мужское приложение",
+    iphoneFemale: "iPhone — женское приложение", iphoneMale: "iPhone — мужское приложение",
+    female: "Женское", male: "Мужское",
+    btnDownload: "Скачать", btnOpen: "Перейти", soon: "Скоро будет доступно",
+  },
+  instruction: {
+    eyebrow: "Инструкция", title: "Инструкция по регистрации",
+    lead: "Следуйте шагам ниже, чтобы правильно зарегистрироваться и попасть в агентство.",
+    importantTitle: "Важно перед отправкой заявки", linksTitle: "Полезные ссылки",
+    dlTitle: "Скачать приложение", dlSub: "Android / iPhone",
+    tgTitle: "Написать менеджеру", tgSub: "Связаться в Telegram",
+    waTitle: "Написать в WhatsApp", waSub: "Связаться в WhatsApp",
+    empty: "Инструкция скоро появится.",
   },
   common: {
     apply: "Подать заявку", learnMore: "Узнать подробнее", next: "Далее", back: "Назад", send: "Отправить",
@@ -169,6 +185,7 @@ export const ru: Dict = {
     fullTitle: "Полное обучение", fullBadge: "Около 2 часов", fullDesc: "Подробное обучение со всеми нюансами работы, видеоуроками и ответами на вопросы.", fullBtn: "Начать полное обучение",
     finish: "Завершить", markComplete: "Я прошла обучение", completedMark: "Обучение пройдено",
     quickIntroSub: "шагов к твоему первому заработку 💜", startBtn: "Начать обучение", quickDuration: "Пройдёт всего 5–10 минут", nextStep: "Следующий шаг",
+    checklistLabel: "Чек-лист", calloutTip: "Совет", calloutImportant: "Важно", calloutForbidden: "Запрещено", calloutExample: "Пример",
   },
   apply: {
     title: "Подать заявку",

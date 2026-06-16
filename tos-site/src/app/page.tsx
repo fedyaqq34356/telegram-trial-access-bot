@@ -21,7 +21,7 @@ export default function HomePage() {
         <div className="grid lg:grid-cols-2 gap-10 items-center">
           <Reveal>
             <span className="eyebrow">{t.common.tagline}</span>
-            <h1 className="mt-3 text-3xl sm:text-5xl font-black leading-[1.08] h-grad">{t.home.heroTitle}</h1>
+            <h1 className="mt-3 text-3xl sm:text-5xl font-black leading-[1.12] pb-1 h-grad">{t.home.heroTitle}</h1>
             <p className="mt-4 text-slate-300 sm:text-lg max-w-xl">{t.home.heroSubtitle}</p>
             <div className="mt-7 flex flex-wrap gap-3">
               <ApplyButton className="!px-6 !py-3.5 text-base" />

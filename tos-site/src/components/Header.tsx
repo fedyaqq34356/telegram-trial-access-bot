@@ -13,7 +13,7 @@ export function Header() {
   const nav: [string, string][] = [
     ["/", t.nav.home], ["/about", t.nav.about], ["/start", t.nav.start],
     ["/benefits", t.nav.benefits], ["/reviews", t.nav.reviews],
-    ["/training", t.nav.training], ["/faq", t.nav.faq], ["/contacts", t.nav.contacts],
+    ["/training", t.nav.training], ["/download", t.nav.download], ["/faq", t.nav.faq], ["/contacts", t.nav.contacts],
   ];
 
   return (

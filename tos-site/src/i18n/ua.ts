@@ -4,7 +4,23 @@ export const ua: Dict = {
   langName: "UA",
   nav: {
     home: "Головна", about: "Про роботу", start: "Як почати", training: "Навчання",
-    benefits: "Переваги", reviews: "Відгуки", faq: "FAQ", contacts: "Контакти", apply: "Подати заявку",
+    benefits: "Переваги", reviews: "Відгуки", faq: "FAQ", contacts: "Контакти", apply: "Подати заявку", download: "Завантажити",
+  },
+  download: {
+    title: "Завантажити застосунок", lead: "Обери свою версію застосунку та пристрій.",
+    androidFemale: "Android — жіночий застосунок", androidMale: "Android — чоловічий застосунок",
+    iphoneFemale: "iPhone — жіночий застосунок", iphoneMale: "iPhone — чоловічий застосунок",
+    female: "Жіночий", male: "Чоловічий",
+    btnDownload: "Завантажити", btnOpen: "Перейти", soon: "Скоро буде доступно",
+  },
+  instruction: {
+    eyebrow: "Інструкція", title: "Інструкція з реєстрації",
+    lead: "Дотримуйся кроків нижче, щоб правильно зареєструватися та потрапити в агентство.",
+    importantTitle: "Важливо перед надсиланням заявки", linksTitle: "Корисні посилання",
+    dlTitle: "Завантажити застосунок", dlSub: "Android / iPhone",
+    tgTitle: "Написати менеджеру", tgSub: "Зв'язатися в Telegram",
+    waTitle: "Написати у WhatsApp", waSub: "Зв'язатися у WhatsApp",
+    empty: "Інструкція скоро з'явиться.",
   },
   common: {
     apply: "Подати заявку", learnMore: "Дізнатися більше", next: "Далі", back: "Назад", send: "Надіслати",
@@ -166,6 +182,7 @@ export const ua: Dict = {
     fullTitle: "Повне навчання", fullBadge: "Близько 2 годин", fullDesc: "Детальне навчання з усіма нюансами роботи, відеоуроками та відповідями на запитання.", fullBtn: "Почати повне навчання",
     finish: "Завершити", markComplete: "Я пройшла навчання", completedMark: "Навчання пройдено",
     quickIntroSub: "кроків до твого першого заробітку 💜", startBtn: "Почати навчання", quickDuration: "Займе всього 5–10 хвилин", nextStep: "Наступний крок",
+    checklistLabel: "Чек-лист", calloutTip: "Порада", calloutImportant: "Важливо", calloutForbidden: "Заборонено", calloutExample: "Приклад",
   },
   apply: {
     title: "Подати заявку",

@@ -129,7 +129,7 @@ function UserForm({ user, agencies, isSuperadmin, onClose, onSaved }: {
           </div>
         </div>
 
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.can_manage_users} onChange={(e) => up("can_manage_users", e.target.checked)} /> Может управлять пользователями CRM</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.can_manage_users} onChange={(e) => up("can_manage_users", e.target.checked)} /> Может управлять пользователями CRM и сайтом агентства</label>
         {!isNew && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.is_active} onChange={(e) => up("is_active", e.target.checked)} /> Активен</label>}
 
         {!isSuper && (

@@ -149,6 +149,16 @@ def site_content(db: Session = Depends(get_db)):
             if qq or aa:
                 faq_ml[lang].append({"q": qq, "a": aa})
 
+    # Инструкция по регистрации (шаги + «Важно») — мультиязычно
+    from .site_content import lesson_resolve
+    instr_raw = _json("instruction_steps_json", "[]")
+    instruction = {lang: [lesson_resolve(l, lang) for l in (instr_raw if isinstance(instr_raw, list) else [])]
+                   for lang in ("ru", "en", "ua")}
+    imp_raw = _json("instruction_important_json", "[]")
+    instruction_important = {lang: [(it.get(lang, "") if isinstance(it, dict) else (it or ""))
+                                    for it in (imp_raw if isinstance(imp_raw, list) else [])]
+                             for lang in ("ru", "en", "ua")}
+
     reviews = (
         db.query(Testimonial)
         .filter(Testimonial.is_visible == True)  # noqa: E712
@@ -188,7 +198,26 @@ def site_content(db: Session = Depends(get_db)):
         "text_overrides": _json("site_text_overrides_json", "{}"),
         "reviews": review_out,
         "apply_example_video": _json("apply_example_video_json", "{}"),  # {ru,en,ua} пути видео
+        "app_downloads": _resolve_downloads(_json("app_downloads_json", "{}")),
+        "instruction": instruction,
+        "instruction_important": instruction_important,
     }
+
+
+def _resolve_downloads(cfg: dict) -> dict:
+    """slot → {type, href}. Для apk href = публичный эндпоинт скачивания."""
+    out = {}
+    for slot in ("android_female", "android_male", "iphone_female", "iphone_male"):
+        s = cfg.get(slot) or {}
+        typ = s.get("type", "link")
+        if typ == "apk" and s.get("file"):
+            href = f"/api/public/app-file/{s['file']}"
+        elif typ == "link":
+            href = (s.get("url") or "").strip()
+        else:
+            href = ""
+        out[slot] = {"type": typ, "href": href}
+    return out
 
 
 @router.get("/testimonial-photo/{tid}")
@@ -326,6 +355,24 @@ def media_video(rel: str):
     if not path.exists():
         raise HTTPException(status_code=404, detail="Не найдено")
     return FileResponse(path, media_type=storage.content_type_of(rel))
+
+
+@router.get("/app-file/{rel:path}")
+def app_file(rel: str):
+    """Скачивание APK-файла (apps/<uuid>.apk). Отдаётся как вложение (скачивание)."""
+    if not rel.startswith("apps/"):
+        raise HTTPException(status_code=404, detail="Не найдено")
+    try:
+        path = storage.abs_path(rel)
+    except storage.UploadError:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Не найдено")
+    return FileResponse(
+        path,
+        media_type="application/vnd.android.package-archive",
+        filename="app.apk",
+    )
 
 
 @router.post("/training/progress")

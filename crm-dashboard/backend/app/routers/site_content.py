@@ -172,8 +172,51 @@ def put_faq(p: dict = Body(...), admin: User = Depends(require_superadmin), db: 
     return get_faq(lang=lang, user=admin, db=db)
 
 
+# ─────────────────────── инструкция: блок «Важно» (список строк, мультиязычный) ───────────────────────
+def _load_important(db: Session) -> list:
+    try:
+        raw = json.loads(app_settings.get_setting(db, "instruction_important_json") or "[]")
+        return raw if isinstance(raw, list) else []
+    except Exception:
+        return []
+
+
+@router.get("/instruction-important")
+def get_important(lang: str = "ru", user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if lang not in LANGS:
+        lang = "ru"
+    items = [(it.get(lang, "") if isinstance(it, dict) else (it or "")) for it in _load_important(db)]
+    return {"lang": lang, "items": items}
+
+
+@router.put("/instruction-important")
+def put_important(p: dict = Body(...), admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """{lang, items:[str]} — переводит каждый пункт на все языки и сохраняет (только изменённые)."""
+    lang = p.get("lang", "ru")
+    if lang not in LANGS:
+        lang = "ru"
+    incoming = [str(x).strip() for x in (p.get("items") or []) if str(x).strip()]
+    existing = _load_important(db)
+
+    def _full(ml):
+        return isinstance(ml, dict) and all(k in ml for k in LANGS)
+    # переводим только изменённые пункты (по позиции)
+    changed = [cur for i, cur in enumerate(incoming)
+               if not (i < len(existing) and _full(existing[i]) and cur == existing[i].get(lang, "").strip())]
+    cache = translate.to_trilang_bulk(changed, lang)
+    out = []
+    for i, cur in enumerate(incoming):
+        ex = existing[i] if i < len(existing) else None
+        if _full(ex) and cur == ex.get(lang, "").strip():
+            out.append(ex)
+        else:
+            out.append(cache.get(cur) or translate.to_trilang(cur, lang))
+    app_settings.set_setting(db, "instruction_important_json", json.dumps(out, ensure_ascii=False))
+    return get_important(lang=lang, user=admin, db=db)
+
+
 # ─────────────────────────── обучение: уроки (мультиязычные) ───────────────────────────
-LESSON_SETTING = {"quick": "training_lessons_quick_json", "full": "training_lessons_json"}
+LESSON_SETTING = {"quick": "training_lessons_quick_json", "full": "training_lessons_json", "instruction": "instruction_steps_json"}
 
 
 def _lesson_pick(v, lang: str) -> str:
@@ -187,8 +230,22 @@ def _image_pick(img, lang: str) -> str:
     return img or ""
 
 
+CALLOUT_KINDS = ("tip", "important", "forbidden", "example")
+
+
 def lesson_resolve(ml: dict, lang: str) -> dict:
     """Мультиязычный урок → урок на одном языке (для редактирования / отдачи)."""
+    callouts_raw = ml.get("callouts")
+    if callouts_raw:
+        callouts = [{"kind": c.get("kind", "tip"), "text": _lesson_pick(c.get("text"), lang),
+                     "langs": c.get("langs") if isinstance(c.get("langs"), list) else list(LANGS)}
+                    for c in callouts_raw]
+    else:
+        # обратная совместимость: старое поле note → блок «Совет»
+        note = _lesson_pick(ml.get("note"), lang)
+        callouts = [{"kind": "tip", "text": note, "langs": list(LANGS)}] if note else []
+    gallery = [{"image": _image_pick(g.get("image"), lang), "caption": _lesson_pick(g.get("caption"), lang)}
+               for g in (ml.get("gallery") or [])]
     return {
         "type": ml.get("type", "text"),
         "url": ml.get("url", ""),
@@ -196,8 +253,9 @@ def lesson_resolve(ml: dict, lang: str) -> dict:
         "video": _image_pick(ml.get("video"), lang),  # видео тоже по языкам
         "title": _lesson_pick(ml.get("title"), lang),
         "body": _lesson_pick(ml.get("body"), lang),
-        "note": _lesson_pick(ml.get("note"), lang),
         "items": [_lesson_pick(it, lang) for it in (ml.get("items") or [])],
+        "callouts": callouts,
+        "gallery": gallery,
     }
 
 
@@ -265,10 +323,14 @@ def put_training_lessons(p: dict = Body(...), admin: User = Depends(require_supe
     def _ex(idx, field):
         return existing[idx].get(field) if idx < len(existing) else None
 
+    def _ex_callouts(idx):
+        c = existing[idx].get("callouts") if idx < len(existing) else None
+        return c if isinstance(c, list) else []
+
     # 1) собрать ТОЛЬКО изменённые тексты (по языку ввода) — их и переведём
     changed = []
     for idx, l in enumerate(lessons):
-        for field in ("title", "body", "note"):
+        for field in ("title", "body"):
             cur = (l.get(field) or "").strip()
             ex = _ex(idx, field)
             if cur and not (_is_full(ex) and cur == _lang_val(ex)):
@@ -279,6 +341,20 @@ def put_training_lessons(p: dict = Body(...), admin: User = Depends(require_supe
             cur = it.strip()
             ex_it = ex_items[k] if k < len(ex_items) else None
             if cur and not (_is_full(ex_it) and cur == _lang_val(ex_it)):
+                changed.append(cur)
+        ex_co = _ex_callouts(idx)
+        callouts = [c for c in (l.get("callouts") or []) if (c.get("text") or "").strip()]
+        for k, c in enumerate(callouts):
+            cur = (c.get("text") or "").strip()
+            ex_t = ex_co[k].get("text") if k < len(ex_co) else None
+            if cur and not (_is_full(ex_t) and cur == _lang_val(ex_t)):
+                changed.append(cur)
+        ex_gal = existing[idx].get("gallery") if idx < len(existing) else None
+        ex_gal = ex_gal if isinstance(ex_gal, list) else []
+        for k, g in enumerate(l.get("gallery") or []):
+            cur = (g.get("caption") or "").strip()
+            ex_cap = ex_gal[k].get("caption") if k < len(ex_gal) else None
+            if cur and not (_is_full(ex_cap) and cur == _lang_val(ex_cap)):
                 changed.append(cur)
     cache = translate.to_trilang_bulk(changed, lang)
 
@@ -295,13 +371,20 @@ def put_training_lessons(p: dict = Body(...), admin: User = Depends(require_supe
     for idx, l in enumerate(lessons):
         items = [it for it in (l.get("items") or []) if str(it).strip()]
         ex_items = _ex(idx, "items") or []
+        ex_co = _ex_callouts(idx)
+        callouts = [c for c in (l.get("callouts") or []) if (c.get("text") or "").strip()]
         ml = {
             "type": l.get("type", "text"),
             "url": (l.get("url") or "").strip(),
             "title": tri(l.get("title"), _ex(idx, "title")),
             "body": tri(l.get("body"), _ex(idx, "body")),
-            "note": tri(l.get("note"), _ex(idx, "note")),
             "items": [tri(it, ex_items[k] if k < len(ex_items) else None) for k, it in enumerate(items)],
+            "callouts": [
+                {"kind": (c.get("kind") if c.get("kind") in CALLOUT_KINDS else "tip"),
+                 "text": tri(c.get("text"), ex_co[k].get("text") if k < len(ex_co) else None),
+                 "langs": ([x for x in (c.get("langs") or LANGS) if x in LANGS] or list(LANGS))}
+                for k, c in enumerate(callouts)
+            ],
         }
         # картинки/видео — по языкам: сохраняем версии других языков из прошлой записи
         for field in ("image", "video"):
@@ -310,6 +393,18 @@ def put_training_lessons(p: dict = Body(...), admin: User = Depends(require_supe
             val_ml = dict(old) if isinstance(old, dict) else ({"ru": old, "en": old, "ua": old} if old else {})
             val_ml[lang] = new_val
             ml[field] = val_ml
+        # галерея — фото по языкам (по индексу) + перевод подписи
+        ex_gal = existing[idx].get("gallery") if idx < len(existing) else None
+        ex_gal = ex_gal if isinstance(ex_gal, list) else []
+        gallery = [g for g in (l.get("gallery") or []) if (g.get("image") or "").strip() or (g.get("caption") or "").strip()]
+        ml["gallery"] = []
+        for k, g in enumerate(gallery):
+            ex_g = ex_gal[k] if k < len(ex_gal) and isinstance(ex_gal[k], dict) else {}
+            img_new = (g.get("image") or "").strip()
+            old_img = ex_g.get("image")
+            img_ml = dict(old_img) if isinstance(old_img, dict) else ({"ru": old_img, "en": old_img, "ua": old_img} if old_img else {})
+            img_ml[lang] = img_new
+            ml["gallery"].append({"image": img_ml, "caption": tri(g.get("caption"), ex_g.get("caption"))})
         multilang.append(ml)
 
     app_settings.set_setting(db, LESSON_SETTING[kind], json.dumps(multilang, ensure_ascii=False))
@@ -341,6 +436,19 @@ async def upload_lesson_video(video: UploadFile = File(...), admin: User = Depen
     except storage.UploadError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"path": rel, "url": f"/api/public/media-video/{rel}"}
+
+
+@router.post("/app-file")
+async def upload_app_file(file: UploadFile = File(...), admin: User = Depends(require_superadmin)):
+    """Загрузка APK-файла приложения. Возвращает относительный путь."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Пустой файл")
+    try:
+        rel = storage.save_app_file((file.filename or "app.apk", file.content_type, data))
+    except storage.UploadError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"path": rel, "url": f"/api/public/app-file/{rel}"}
 
 
 @router.get("/training-progress")

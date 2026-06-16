@@ -15,6 +15,9 @@ export interface SiteContent {
   text_overrides: Record<string, string>;
   reviews: AdminReview[];
   apply_example_video?: Record<string, string>;
+  app_downloads?: Record<string, { type: string; href: string }>;
+  instruction?: Record<string, Lesson[]>;
+  instruction_important?: Record<string, string[]>;
 }
 
 export async function getSiteContent(): Promise<SiteContent | null> {
@@ -37,7 +40,9 @@ export async function submitApplication(form: FormData): Promise<{ ok: boolean; 
   return r.json();
 }
 
-export interface Lesson { type: "video" | "text" | "checklist"; title: string; body?: string; url?: string; items?: string[]; image?: string; note?: string; video?: string }
+export interface Callout { kind: "tip" | "important" | "forbidden" | "example"; text: string; langs?: string[] }
+export interface GalleryItem { image: string; caption: string }
+export interface Lesson { type: "video" | "text" | "checklist"; title: string; body?: string; url?: string; items?: string[]; image?: string; note?: string; video?: string; callouts?: Callout[]; gallery?: GalleryItem[] }
 
 export async function reportProgress(password: string, haloId: string, kind: "quick" | "full", stepsDone: number, stepsTotal: number, completed: boolean): Promise<void> {
   if (!haloId.trim()) return;

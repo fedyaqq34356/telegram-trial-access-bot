@@ -8,9 +8,21 @@ import { Spinner } from "@/components/ui";
 import { IconPlus, IconTrash } from "@/components/icons";
 import type { Testimonial } from "@/lib/types";
 
-type Tab = "contacts" | "faq" | "reviews" | "training";
+type Tab = "contacts" | "faq" | "reviews" | "training" | "downloads" | "instruction";
 interface FaqItem { q: string; a: string }
-interface Lesson { type: "video" | "text" | "checklist"; title: string; body?: string; url?: string; items?: string[]; image?: string; note?: string; video?: string }
+interface DlSlot { type: "link" | "apk"; url?: string; file?: string }
+const DL_SLOTS: [string, string][] = [
+  ["android_female", "Android — женское приложение"],
+  ["android_male", "Android — мужское приложение"],
+  ["iphone_female", "iPhone — женское приложение"],
+  ["iphone_male", "iPhone — мужское приложение"],
+];
+interface Callout { kind: string; text: string; langs?: string[] }
+const ALL_LANGS = ["ru", "en", "ua"];
+const LANG_SHORT: Record<string, string> = { ru: "RU", en: "EN", ua: "UA" };
+interface GalleryItem { image: string; caption: string }
+interface Lesson { type: "video" | "text" | "checklist"; title: string; body?: string; url?: string; items?: string[]; image?: string; note?: string; video?: string; callouts?: Callout[]; gallery?: GalleryItem[] }
+const CALLOUT_OPTS: [string, string][] = [["tip", "Совет"], ["important", "Важно"], ["forbidden", "Запрещено"], ["example", "Пример"]];
 
 export default function SitePage() {
   const { me } = useAuth();
@@ -19,6 +31,7 @@ export default function SitePage() {
   const [tab, setTab] = useState<Tab>("contacts");
   const [form, setForm] = useState<any>(null);
   const [exVideo, setExVideo] = useState<Record<string, string>>({});
+  const [downloads, setDownloads] = useState<Record<string, DlSlot>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -31,6 +44,7 @@ export default function SitePage() {
         owner_telegram_id: data.owner_telegram_id || "", training_password: data.training_password || "",
       });
       try { setExVideo(JSON.parse(data.apply_example_video_json || "{}")); } catch { setExVideo({}); }
+      try { setDownloads(JSON.parse(data.app_downloads_json || "{}")); } catch { setDownloads({}); }
     }
   }, [data]);
 
@@ -41,18 +55,22 @@ export default function SitePage() {
   async function save() {
     setBusy(true); setMsg("");
     try {
-      await api.put("/settings", { values: { ...form, apply_example_video_json: JSON.stringify(exVideo) } });
+      await api.put("/settings", { values: { ...form, apply_example_video_json: JSON.stringify(exVideo), app_downloads_json: JSON.stringify(downloads) } });
       setMsg("Сохранено"); mutate(); setTimeout(() => setMsg(""), 2500);
     } catch (e) { setMsg(e instanceof ApiError ? e.message : "Ошибка"); }
     finally { setBusy(false); }
   }
 
-  const TABS: [Tab, string][] = [["contacts", "Контакты и доступ"], ["faq", "FAQ"], ["reviews", "Отзывы"], ["training", "Обучение"]];
+  const TABS: [Tab, string][] = [["contacts", "Контакты и доступ"], ["faq", "FAQ"], ["reviews", "Отзывы"], ["training", "Обучение"], ["instruction", "Инструкция"], ["downloads", "Скачать приложение"]];
+  const dl = (slot: string, patch: Partial<DlSlot>) => setDownloads((s) => {
+    const prev: DlSlot = s[slot] || { type: "link" };
+    return { ...s, [slot]: { ...prev, ...patch } };
+  });
 
   return (
     <>
       <PageHeader title="Мой сайт" showRefresh={false}>
-        {!readOnly && tab !== "reviews" && tab !== "faq" && tab !== "training" && (
+        {!readOnly && tab !== "reviews" && tab !== "faq" && tab !== "training" && tab !== "instruction" && (
           <button className="btn-primary min-w-[150px] justify-center" disabled={busy} onClick={save}>{busy ? <Spinner className="w-4 h-4" /> : null} Сохранить</button>
         )}
       </PageHeader>
@@ -94,6 +112,35 @@ export default function SitePage() {
       {tab === "reviews" && <ReviewsTab readOnly={readOnly} />}
 
       {tab === "training" && <TrainingTab readOnly={readOnly} />}
+
+      {tab === "instruction" && <InstructionTab readOnly={readOnly} />}
+
+      {tab === "downloads" && (
+        <div className="card max-w-3xl space-y-4">
+          <p className="text-xs text-slate-500">Для каждой версии выбери тип: «Ссылка» (девушку перекинет по ссылке) или «APK-файл» (начнётся скачивание загруженного файла). Меняй здесь при обновлении приложения.</p>
+          {DL_SLOTS.map(([slot, label]) => {
+            const cur = downloads[slot] || { type: "link" as const };
+            return (
+              <div key={slot} className="border border-line rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="font-medium text-sm">{label}</span>
+                  <select className="input w-auto py-1.5" disabled={readOnly} value={cur.type}
+                          onChange={(e) => dl(slot, { type: e.target.value as "link" | "apk" })}>
+                    <option value="link">Ссылка</option>
+                    <option value="apk">APK-файл</option>
+                  </select>
+                </div>
+                {cur.type === "link" ? (
+                  <input className="input" placeholder="https://… (ссылка на скачивание / App Store / TestFlight)" disabled={readOnly}
+                         value={cur.url || ""} onChange={(e) => dl(slot, { url: e.target.value })} />
+                ) : (
+                  <ApkUpload file={cur.file} readOnly={readOnly} onChange={(path) => dl(slot, { file: path })} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }
@@ -233,7 +280,7 @@ function FaqTab({ readOnly }: { readOnly: boolean }) {
         {!readOnly && <button className="btn-primary min-w-[150px] justify-center" disabled={busy} onClick={save}>{busy ? <Spinner className="w-4 h-4" /> : null} Сохранить</button>}
       </div>
       {msg && <div className="text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">{msg}</div>}
-      <p className="text-xs text-slate-500">Вписывай на одном языке — при сохранении переведётся на все 3 языка сайта.</p>
+      <p className="text-xs text-slate-500">Пиши на одном языке — при сохранении переведётся на 2 других. Переводится только изменённый текст.</p>
       {items.map((item, i) => (
         <div key={i} className="border border-line rounded-xl p-3 space-y-2">
           <div className="flex items-center gap-2">
@@ -290,9 +337,63 @@ function TrainingTab({ readOnly }: { readOnly: boolean }) {
         {!readOnly && <button className="btn-primary min-w-[150px] justify-center" disabled={busy} onClick={save}>{busy ? <Spinner className="w-4 h-4" /> : null} Сохранить</button>}
       </div>
       {msg && <div className={`text-sm rounded-lg px-3 py-2 border ${isErr ? "text-rose-400 bg-rose-500/10 border-rose-500/20" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"}`}>{msg}</div>}
-      <p className="text-xs text-slate-500">Вписывай на одном языке — при сохранении переведётся на все 3 языка сайта (перевод занимает несколько секунд). Пароль входа — на вкладке «Контакты и доступ».</p>
+      <p className="text-xs text-slate-500">Пиши весь текст на одном языке (напр. русском) — при сохранении он переведётся на 2 других. Переводится только тот текст, который ты изменил: фото/видео и неизменённый текст других языков не затрагиваются. Чтобы задать фото для другого языка — переключи «Язык ввода» и просто загрузи фото (текст при этом не перезапишется). Пароль входа — на вкладке «Контакты и доступ».</p>
       <LessonEditor title="Быстрый старт (5–10 мин)" lessons={quick} setLessons={setQuick} readOnly={readOnly} />
       <LessonEditor title="Полное обучение (1–2 часа)" lessons={full} setLessons={setFull} readOnly={readOnly} />
+    </div>
+  );
+}
+
+function InstructionTab({ readOnly }: { readOnly: boolean }) {
+  const [lang, setLang] = useState("ru");
+  const { data: stepsData, mutate: mSteps } = useSWR<{ lessons: Lesson[] }>(`/site-content/training-lessons?kind=instruction&lang=${lang}`, fetcher);
+  const { data: impData, mutate: mImp } = useSWR<{ items: string[] }>(`/site-content/instruction-important?lang=${lang}`, fetcher);
+  const [steps, setSteps] = useState<Lesson[]>([]);
+  const [important, setImportant] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [isErr, setIsErr] = useState(false);
+  useEffect(() => { if (stepsData) setSteps(stepsData.lessons); }, [stepsData]);
+  useEffect(() => { if (impData) setImportant(impData.items); }, [impData]);
+
+  async function save() {
+    setBusy(true); setMsg(""); setIsErr(false);
+    try {
+      const clean = (ls: Lesson[]) => ls.map((l) => l.items ? { ...l, items: l.items.filter((x) => x.trim()) } : l);
+      await api.put("/site-content/training-lessons", { kind: "instruction", lang, lessons: clean(steps) });
+      await api.put("/site-content/instruction-important", { lang, items: important.filter((x) => x.trim()) });
+      setMsg("Сохранено и переведено на все языки"); mSteps(); mImp(); setTimeout(() => setMsg(""), 3000);
+    } catch (e) { setIsErr(true); setMsg(e instanceof ApiError ? e.message : "Ошибка сохранения"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card max-w-3xl space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Язык ввода</span>
+          <select className="input w-auto py-1.5" value={lang} onChange={(e) => setLang(e.target.value)}>
+            {LANG_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+        {!readOnly && <button className="btn-primary min-w-[150px] justify-center" disabled={busy} onClick={save}>{busy ? <Spinner className="w-4 h-4" /> : null} Сохранить</button>}
+      </div>
+      {msg && <div className={`text-sm rounded-lg px-3 py-2 border ${isErr ? "text-rose-400 bg-rose-500/10 border-rose-500/20" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"}`}>{msg}</div>}
+      <p className="text-xs text-slate-500">Отдельная страница «Инструкция по регистрации» — доступна только по прямой ссылке <b>/instruction</b> (в меню сайта её нет). Пиши на одном языке — переведётся на остальные. Кнопки внизу страницы («Скачать приложение», Telegram, WhatsApp) берутся автоматически из вкладок «Скачать приложение» и «Контакты и доступ».</p>
+
+      <LessonEditor title="Шаги инструкции" lessons={steps} setLessons={setSteps} readOnly={readOnly} />
+
+      <div className="border-t border-line pt-3 space-y-2">
+        <div className="label">Блок «Важно перед отправкой заявки»</div>
+        {important.map((it, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input className="input" placeholder="Пункт списка" disabled={readOnly} value={it}
+                   onChange={(e) => setImportant((s) => s.map((x, j) => j === i ? e.target.value : x))} />
+            {!readOnly && <button className="btn-danger px-2.5 py-2" onClick={() => setImportant((s) => s.filter((_, j) => j !== i))}><IconTrash className="w-4 h-4" /></button>}
+          </div>
+        ))}
+        {!readOnly && <button className="btn-ghost" onClick={() => setImportant((s) => [...s, ""])}><IconPlus className="w-4 h-4" /> Добавить пункт</button>}
+      </div>
     </div>
   );
 }
@@ -322,12 +423,57 @@ function LessonEditor({ title, lessons, setLessons, readOnly }: { title: string;
           <textarea className="input min-h-[80px]" placeholder="Пункты чек-листа, по одному на строку (необязательно)" disabled={readOnly}
                     value={(l.items || []).join("\n")}
                     onChange={(e) => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, items: e.target.value.split("\n") } : x))} />
-          <textarea className="input min-h-[44px]" placeholder="Совет / выделенный блок (необязательно) — розовая врезка на шаге" disabled={readOnly} value={l.note || ""}
-                    onChange={(e) => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, note: e.target.value } : x))} />
+          <div className="space-y-2">
+            <div className="text-xs text-slate-500">Блоки (Совет / Важно / Запрещено / Пример) — цветные врезки под чек-листом:</div>
+            {(l.callouts || []).map((c, ci) => {
+              const shownLangs = c.langs || ALL_LANGS;
+              const setCallout = (patch: Partial<Callout>) => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, callouts: (x.callouts || []).map((y, m) => m === ci ? { ...y, ...patch } : y) } : x));
+              const toggleLang = (lng: string) => {
+                const next = shownLangs.includes(lng) ? shownLangs.filter((z) => z !== lng) : [...shownLangs, lng];
+                setCallout({ langs: next.length ? next : ALL_LANGS });
+              };
+              return (
+                <div key={ci} className="border border-line/60 rounded-lg p-2 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <select className="input w-auto py-1.5" disabled={readOnly} value={c.kind}
+                            onChange={(e) => setCallout({ kind: e.target.value })}>
+                      {CALLOUT_OPTS.map(([v, lbl]) => <option key={v} value={v}>{lbl}</option>)}
+                    </select>
+                    <textarea className="input min-h-[44px]" placeholder="Текст блока" disabled={readOnly} value={c.text}
+                              onChange={(e) => setCallout({ text: e.target.value })} />
+                    {!readOnly && <button className="btn-danger px-2.5 py-2" onClick={() => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, callouts: (x.callouts || []).filter((_, m) => m !== ci) } : x))}><IconTrash className="w-4 h-4" /></button>}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                    <span>Показывать на:</span>
+                    {ALL_LANGS.map((lng) => (
+                      <label key={lng} className="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" disabled={readOnly} checked={shownLangs.includes(lng)} onChange={() => toggleLang(lng)} /> {LANG_SHORT[lng]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {!readOnly && <button className="btn-ghost text-xs px-3 py-1.5" onClick={() => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, callouts: [...(x.callouts || []), { kind: "tip", text: "" }] } : x))}><IconPlus className="w-3.5 h-3.5" /> Добавить блок</button>}
+          </div>
           <LessonImage image={l.image} readOnly={readOnly}
                        onChange={(url) => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, image: url } : x))} />
           <LessonVideo video={l.video} readOnly={readOnly}
                        onChange={(url) => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, video: url } : x))} />
+          <div className="space-y-2">
+            <div className="text-xs text-slate-500">Галерея (несколько фото в ряд с подписями — как «4 скрина» в шаге):</div>
+            {(l.gallery || []).map((g, gi) => (
+              <div key={gi} className="flex items-center gap-2 flex-wrap border border-line/60 rounded-lg p-2">
+                <span className="text-xs text-slate-500 w-5">{gi + 1}</span>
+                <LessonImage image={g.image} readOnly={readOnly}
+                             onChange={(url) => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, gallery: (x.gallery || []).map((y, m) => m === gi ? { ...y, image: url } : y) } : x))} />
+                <input className="input flex-1 min-w-[140px]" placeholder="Подпись под фото" disabled={readOnly} value={g.caption}
+                       onChange={(e) => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, gallery: (x.gallery || []).map((y, m) => m === gi ? { ...y, caption: e.target.value } : y) } : x))} />
+                {!readOnly && <button className="btn-danger px-2.5 py-2" onClick={() => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, gallery: (x.gallery || []).filter((_, m) => m !== gi) } : x))}><IconTrash className="w-4 h-4" /></button>}
+              </div>
+            ))}
+            {!readOnly && <button className="btn-ghost text-xs px-3 py-1.5" onClick={() => setLessons((ls) => ls.map((x, j) => j === i ? { ...x, gallery: [...(x.gallery || []), { image: "", caption: "" }] } : x))}><IconPlus className="w-3.5 h-3.5" /> Добавить фото в галерею</button>}
+          </div>
         </div>
       ))}
       {!readOnly && (
@@ -395,6 +541,37 @@ function LessonVideo({ video, onChange, readOnly }: { video?: string; onChange: 
         </>
       )}
       {busy && <span className="text-xs text-slate-500">загрузка… (большое видео — подождите)</span>}
+      {err && <span className="text-xs text-rose-400">{err}</span>}
+    </div>
+  );
+}
+
+function ApkUpload({ file, onChange, readOnly }: { file?: string; onChange: (path: string) => void; readOnly: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  async function upload(f: File | null) {
+    if (!f) return;
+    setBusy(true); setErr("");
+    try {
+      const fd = new FormData(); fd.set("file", f);
+      const r = await api.upload<{ path: string }>("/site-content/app-file", fd);
+      onChange(r.path);
+    } catch (e) { setErr(e instanceof ApiError ? e.message : "Ошибка загрузки APK"); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      {file && <span className="chip bg-emerald-500/15 text-emerald-300 text-[11px]">APK загружен</span>}
+      {!readOnly && (
+        <>
+          <label className="btn-ghost text-xs px-3 py-1.5 cursor-pointer">
+            {busy ? <Spinner className="w-3.5 h-3.5" /> : (file ? "Заменить APK" : "Загрузить APK")}
+            <input type="file" accept=".apk,application/vnd.android.package-archive" className="hidden" onChange={(e) => upload(e.target.files?.[0] || null)} />
+          </label>
+          {file && <button className="btn-danger text-xs px-2.5 py-1.5" onClick={() => onChange("")}><IconTrash className="w-3.5 h-3.5" /></button>}
+        </>
+      )}
+      {busy && <span className="text-xs text-slate-500">загрузка APK… (большой файл — подождите)</span>}
       {err && <span className="text-xs text-rose-400">{err}</span>}
     </div>
   );

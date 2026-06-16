@@ -4,7 +4,23 @@ export const en: Dict = {
   langName: "EN",
   nav: {
     home: "Home", about: "The Work", start: "How to Start", training: "Training",
-    benefits: "Benefits", reviews: "Reviews", faq: "FAQ", contacts: "Contacts", apply: "Apply",
+    benefits: "Benefits", reviews: "Reviews", faq: "FAQ", contacts: "Contacts", apply: "Apply", download: "Download",
+  },
+  download: {
+    title: "Download the app", lead: "Choose your app version and device.",
+    androidFemale: "Android — women's app", androidMale: "Android — men's app",
+    iphoneFemale: "iPhone — women's app", iphoneMale: "iPhone — men's app",
+    female: "Women's", male: "Men's",
+    btnDownload: "Download", btnOpen: "Open", soon: "Coming soon",
+  },
+  instruction: {
+    eyebrow: "Guide", title: "Registration guide",
+    lead: "Follow the steps below to register correctly and join the agency.",
+    importantTitle: "Important before submitting", linksTitle: "Useful links",
+    dlTitle: "Download the app", dlSub: "Android / iPhone",
+    tgTitle: "Message the manager", tgSub: "Contact on Telegram",
+    waTitle: "Message on WhatsApp", waSub: "Contact on WhatsApp",
+    empty: "The guide will appear soon.",
   },
   common: {
     apply: "Apply now", learnMore: "Learn more", next: "Next", back: "Back", send: "Send",
@@ -166,6 +182,7 @@ export const en: Dict = {
     fullTitle: "Full training", fullBadge: "About 2 hours", fullDesc: "Detailed training with all the nuances, video lessons and answers to questions.", fullBtn: "Start full training",
     finish: "Finish", markComplete: "I completed the training", completedMark: "Training completed",
     quickIntroSub: "steps to your first earnings 💜", startBtn: "Start training", quickDuration: "Takes just 5–10 minutes", nextStep: "Next step",
+    checklistLabel: "Checklist", calloutTip: "Tip", calloutImportant: "Important", calloutForbidden: "Forbidden", calloutExample: "Example",
   },
   apply: {
     title: "Apply",

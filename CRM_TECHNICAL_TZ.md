@@ -81,26 +81,31 @@ GET /anchor/anchorManage/loadExtAnchorInfoList?page=1&limit=50&...
 
 Возвращает поля (из реального ответа панели):
 - `DisplayAccountId` — Halo ID девушки
-- `NickName` — ник
+- `AnchorName` — ник
 - `Avatar` — URL аватара
 - `Agent` — название агентства
-- `AgentRatio` — процент (например 2000 = 20%)
+- `ExtAgentSplitRatio` — процент (например 2000 = 20%)
 - `DownRate` — коэффициент в профиле
 - `RealDownRate` — коэффициент за последние 30 дней
 - `MonthlyIncome` — заработок за месяц (в coins)
-- `LastDayIncome` — заработок за сутки (в coins)
-- `LastMonthOnline` — онлайн за месяц (в минутах)
-- `LastDayOnline` — онлайн за сутки (в минутах)
-- `MontlyRank` — ранг в агентстве
+- `WeeklyIncome` — заработок за неделю (в coins)
+- `PreIncome` — заработок за сутки (в coins)
+- `MonthlyAvailable` — онлайн за месяц (строка, например "71h46m")
+- `WeeklyAvailable` — онлайн за неделю
+- `PreAvailable` — онлайн за сутки
+- `MonthlyIncomeRanking` — место в топе приложения за месяц
 - `AnchorGrade` — грейд (A, B, C, D, S)
-- `BalanceCoins` — текущий баланс
-- `HostID` — внутренний ID
+- `Diamond` — текущий баланс
+- `SplitDiamond` — баланс доступный для split
+- `AccountId` — внутренний ID
 - `Email` — email аккаунта
-- `AnchorApprovalDate` — дата регистрации
-- `FakePhotosRate` — процент фейковых фото (Dislike/Like)
-- `DislikeRate` — коэффициент (Dislike/Like)
-- `InternalAgent` — внутренний менеджер (Loren и т.д.)
-- `Host app version` — версия приложения
+- `JudgeDate` — дата одобрения (ApprovalDate)
+- `Fake` — процент фейковых фото (например "14.61%")
+- `BanStatus` — статус бана (2 = активен, другое = заблокирован)
+- `InAgent` — внутренний менеджер (Loren и т.д.)
+- `ReceiveRate` — DislikeRate (если >= 0.4 — пропустить при split)
+
+> ⚠️ Пагинация: параметры `page` и `limit`. Общее количество в поле `count`.
 
 ### 2. Онлайн-время (Live Duration)
 
@@ -131,27 +136,14 @@ GET /anchor/anchorManage/loadAgencyWalletDetailList
 - В обработке
 - Выведено за месяц
 
-### 5. История выводов (Withdraw Applications)
-
-```
-GET /anchor/AnchorManage/loadwithdrawlData?displayAcc=...
-```
-
-Поля:
-- Дата и время
-- Сумма (coins + USD)
-- Способ вывода (USDT TRC20 и т.д.)
-- Адрес кошелька
-- Статус (успешно / в обработке / ошибка / отменено)
-
-### 6. Монеты (Coins Record)
+### 5. Монеты (Coins Record)
 
 ```
 POST /anchor/anchorManage/loadAnchorCoinsRecords
 Body: anchorId=ID&...
 ```
 
-### 7. Баны (Ban Records)
+### 6. Баны (Ban Records)
 
 ```
 POST /anchor/anchorManage/loadAnchorBanRecordsForVisitor
@@ -178,21 +170,53 @@ Body: id=ANCHOR_ID&ratio=RATIO_VALUE&agent=AGENCY_NAME
 
 Ограничение: максимум 20% (ratio=2000).
 
-### Split ⚠️ ЭНДПОИНТ НЕ ЗАХВАЧЕН
+### Split
 
-Split доступен только когда Pending split coins > 0.
-Предположительно:
 ```
-POST /anchor/anchorManage/doSplit (или splitAnchorCoins)
-Body: agency=AGENCY_NAME (возможно + список anchor_id)
+POST /anchor/anchorManage/splitCoins
+Content-Type: application/x-www-form-urlencoded
+X-Requested-With: XMLHttpRequest
+Body: ids=DISPLAY_ACCOUNT_ID
 ```
 
-**Необходимо захватить из Network tab когда появятся pending coins.**
+Одна девушка за один запрос. Split делать последовательно, не параллельно.
 
-### Создание вывода ⚠️ КНОПКИ НЕТ В ПАНЕЛИ
+**Обязательные куки:**
+```
+PHPSESSID=xxx
+acuid=xxx
+trusted_device=xxx
+acuemail=xxx
+acudate=xxx
+```
 
-Возможно требует других прав или находится в другом разделе.
-Эндпоинт не найден — уточнить у владельца панели.
+**Успешный ответ:** `{"code": 0, "msg": "Operation successfully"}`
+**Ошибка сессии:** `{"code": -1}` или редирект → повторить логин.
+
+**Условия пропуска девушки:**
+- `SplitDiamond < 100` — баланс для сплита меньше 100 coins
+- `float(ReceiveRate) >= 0.4` — коэффициент дизлайков 0.4 и выше
+
+**Логика обхода:**
+```python
+for anchor in anchors:
+    if anchor["SplitDiamond"] < 100:
+        continue
+    if float(anchor["ReceiveRate"]) >= 0.4:
+        continue
+    response = session.post(
+        "https://admin.livegirl.me/anchor/anchorManage/splitCoins",
+        data={"ids": anchor["DisplayAccountId"]},
+        headers={"X-Requested-With": "XMLHttpRequest"}
+    )
+    result = response.json()
+    if result["code"] == 0:
+        log("success", anchor)
+    else:
+        log("error", anchor, result)
+```
+
+**Пагинация:** Общее количество в поле `count`. При 356 девушках и `limit=50` — 8 запросов (page=1..8).
 
 ---
 
@@ -210,8 +234,8 @@ id, agency_id, display_account_id, nickname, avatar_url,
 agent_name, ratio, down_rate, real_down_rate,
 monthly_income, last_day_income,
 last_month_online, last_day_online,
-balance_coins, email, host_id, anchor_grade,
-registration_date, updated_at
+balance_coins, email, account_id, anchor_grade,
+monthly_income_ranking, approval_date, updated_at
 ```
 
 ### Таблица users (CRM-пользователи)
@@ -223,7 +247,7 @@ created_at, last_login, is_active
 ### Таблица user_agency_access
 ```sql
 user_id, agency_id,
-can_view, can_split, can_change_ratio, can_withdraw
+can_view, can_split, can_change_ratio
 ```
 
 ### Таблица security_logs
@@ -233,7 +257,7 @@ id, user_id, action, ip_address, user_agent, created_at
 
 ### Таблица action_log (история изменений)
 ```sql
-id, user_id, agency_id, action_type (ratio_change/split/withdraw),
+id, user_id, agency_id, action_type (ratio_change/split),
 anchor_id, old_value, new_value, status, created_at, error_message
 ```
 
@@ -255,7 +279,6 @@ backend/
     agencies.py    # CRUD агентств
     hosts.py       # список девушек, изменение %
     split.py       # split endpoint
-    withdraw.py    # вывод средств
     users.py       # управление CRM-пользователями
     sync.py        # ручное обновление данных
   services/
@@ -286,10 +309,6 @@ GET  /hosts/{id}/history — история изменений
 POST /split             — выполнить split (по агентству или всем)
 GET  /split/history     — история split операций
 
-GET  /withdraw/balance  — баланс агентства
-POST /withdraw/create   — создать вывод
-GET  /withdraw/history  — история выводов
-
 GET  /users             — список CRM-пользователей (superadmin)
 POST /users             — создать пользователя
 PUT  /users/{id}        — изменить права
@@ -312,7 +331,6 @@ GET  /dashboard/stats   — суммарная статистика для ка�
 /risk              — только девушки в зоне риска
 /agencies          — управление агентствами
 /split             — страница split
-/withdraw          — вывод средств
 /admins            — управление CRM-пользователями
 /logs              — история действий
 /settings          — настройки
@@ -328,7 +346,6 @@ RatioEditor        — inline редактирование процента
 RiskBadge          — статус риска (✅/⚠️/🚨)
 GradeLevel         — уровень девушки (S/A/B/C/D)
 SplitModal         — модальное окно split
-WithdrawForm       — форма создания вывода
 ```
 
 ---
@@ -355,6 +372,8 @@ def check_risk(grade, down_rate, real_down_rate) -> list:
     return risks
 ```
 
+> ⚠️ Уровень считается по `MonthlyIncome` из API, а НЕ по полю `AnchorGrade`.
+
 ---
 
 ## Конвертация coins → USD
@@ -372,17 +391,6 @@ dollars = coins / 20
 - Сохраняет в таблицу `hosts`
 - Фронт показывает "Данные обновлены X мин. назад"
 - Кнопка "Обновить данные" — принудительный вызов sync endpoint
-
----
-
-## Split — логика реализации
-
-1. Получить список девушек агентства у которых BalanceCoins > 100
-2. Для каждой вызвать split эндпоинт (когда будет захвачен)
-3. Логировать результат в action_log
-4. Вернуть сводку: обработано/пропущено/ошибки
-
-**ВАЖНО**: Split эндпоинт нужно захватить из Network tab панели когда Pending split coins > 0.
 
 ---
 
@@ -411,12 +419,10 @@ Node.js для Next.js (или next build + nginx static)
 
 ## Что нужно от заказчика
 
-1. Логины/пароли от всех 4+ агентств
+1. Логины/пароли от всех агентств
 2. Google Authenticator seed (если есть 2FA)
-3. Доступ к панели когда Pending split > 0 — чтобы захватить split эндпоинт
-4. Уточнить есть ли кнопка создания вывода в панели (или это только на стороне Halo Live)
-5. Финальные макеты (есть на скриншоте, можно использовать как основу)
-6. Доступ к VDS для деплоя
+3. Финальные макеты (есть на скриншоте, можно использовать как основу)
+4. Доступ к VDS для деплоя
 
 ---
 
@@ -424,8 +430,8 @@ Node.js для Next.js (или next build + nginx static)
 
 | Вопрос | Статус |
 |---|---|
-| Split эндпоинт | ❓ Ждём pending coins |
-| Создание вывода | ❓ Кнопки нет в панели |
 | Логин эндпоинты (шаг 1 и 2) | ⚠️ Не захвачены, нужно проверить |
-| Параметры пагинации loadExtAnchorInfoList | ✅ page, limit |
+| Параметры пагинации loadExtAnchorInfoList | ✅ page, limit, count |
 | Формат response при SESSION_EXPIRED | ✅ редирект или code=-1 |
+| BanStatus значения | ✅ 2 = активен, другое = заблокирован |
+| Split эндпоинт | ✅ /anchor/anchorManage/splitCoins |

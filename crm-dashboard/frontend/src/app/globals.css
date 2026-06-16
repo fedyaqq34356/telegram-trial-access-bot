@@ -1,0 +1,76 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-bg text-slate-200 font-sans antialiased;
+  background-image:
+    radial-gradient(1200px 600px at 12% -10%, rgba(124, 58, 237, 0.16), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(59, 130, 246, 0.08), transparent 50%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+@layer components {
+  .glass {
+    @apply bg-card backdrop-blur-xl border border-line rounded-xl2 shadow-card;
+  }
+  /* Плотный фон для выпадающих меню/поповеров — чтобы не просвечивал контент под ними. */
+  .popover {
+    @apply backdrop-blur-xl border border-line rounded-xl2 shadow-card;
+    background-color: rgba(20, 18, 32, 0.98);
+  }
+  .card {
+    @apply glass p-5;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn text-white bg-gradient-to-br from-brand-500 to-brand-700
+           hover:from-brand-400 hover:to-brand-600 shadow-glow;
+  }
+  .btn-ghost {
+    @apply btn bg-white/5 hover:bg-white/10 border border-line text-slate-200;
+  }
+  .btn-danger {
+    @apply btn bg-danger/15 hover:bg-danger/25 text-danger border border-danger/30;
+  }
+  .input {
+    @apply w-full rounded-xl bg-black/30 border border-line px-3.5 py-2.5 text-sm text-slate-100
+           placeholder:text-slate-500 outline-none focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20
+           transition;
+  }
+  .label { @apply text-xs font-medium text-slate-400 mb-1.5 block; }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold;
+  }
+  .th {
+    @apply text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 px-4 py-3 whitespace-nowrap;
+  }
+  .td {
+    @apply px-4 py-3 text-sm align-middle whitespace-nowrap;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-400
+           hover:text-white hover:bg-white/5 transition relative;
+  }
+  .nav-link-active {
+    @apply text-white bg-gradient-to-r from-brand-600/30 to-transparent;
+  }
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.25); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.4); }
+
+.spin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

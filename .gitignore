@@ -4,3 +4,5 @@
 *.db
 handlers/__pycache__
 .claude/
+# handoff-документ с секретами — не коммитить
+информация.md

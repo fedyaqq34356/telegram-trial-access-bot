@@ -1,0 +1,122 @@
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+
+# ── auth ──
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+# ── agency access ──
+class AccessItem(BaseModel):
+    agency_id: int
+    can_view: bool = True
+    can_change_ratio: bool = False
+    can_split: bool = False
+
+
+# ── users ──
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    name: str = ""
+    role: str = "admin"  # admin | superadmin
+    can_manage_users: bool = False
+    accesses: list[AccessItem] = []
+
+
+class UserUpdate(BaseModel):
+    password: str | None = None
+    name: str | None = None
+    role: str | None = None
+    can_manage_users: bool | None = None
+    is_active: bool | None = None
+    accesses: list[AccessItem] | None = None
+
+
+class AccessOut(BaseModel):
+    agency_id: int
+    agency_name: str = ""
+    can_view: bool
+    can_change_ratio: bool
+    can_split: bool
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    name: str
+    role: str
+    can_manage_users: bool
+    is_active: bool
+    created_at: datetime | None = None
+    last_login: datetime | None = None
+    accesses: list[AccessOut] = []
+
+
+# ── agencies ──
+class AgencyCreate(BaseModel):
+    name: str
+    url: str = "https://admin.livegirl.me"
+    account: str = ""
+    password: str = ""
+    aemail: str = ""
+    apassword: str = ""
+    tfa_required: bool = False
+
+
+class AgencyUpdate(BaseModel):
+    name: str | None = None
+    url: str | None = None
+    account: str | None = None
+    password: str | None = None
+    aemail: str | None = None
+    apassword: str | None = None
+    tfa_required: bool | None = None
+    is_active: bool | None = None
+
+
+class AgencyOut(BaseModel):
+    id: int
+    name: str
+    url: str
+    tfa_required: bool
+    is_active: bool
+    has_session: bool = False
+    last_synced_at: datetime | None = None
+    cooldown_remaining_seconds: int = 0  # сколько осталось до следующего сплита этого агентства
+    # права текущего пользователя на это агентство
+    can_change_ratio: bool = True
+    can_split: bool = True
+
+
+# ── hosts ──
+class RatioUpdate(BaseModel):
+    ratio_percent: float = Field(ge=0, le=20)
+
+
+class TfaSubmit(BaseModel):
+    agency_id: int
+    code: str
+
+
+# ── split ──
+class SplitRequest(BaseModel):
+    agency_id: int | None = None  # None = все доступные
+
+
+# ── settings ──
+class SettingsUpdate(BaseModel):
+    values: dict[str, str]

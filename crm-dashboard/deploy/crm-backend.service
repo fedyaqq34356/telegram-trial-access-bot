@@ -1,0 +1,15 @@
+[Unit]
+Description=Vio Agency CRM — FastAPI backend
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/crm-dashboard/backend
+EnvironmentFile=/opt/crm-dashboard/backend/.env
+ExecStart=/opt/crm-dashboard/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

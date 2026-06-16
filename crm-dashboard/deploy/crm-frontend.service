@@ -1,0 +1,17 @@
+[Unit]
+Description=Vio Agency CRM — Next.js frontend
+After=network.target crm-backend.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/crm-dashboard/frontend
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

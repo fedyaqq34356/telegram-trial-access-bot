@@ -10,10 +10,10 @@ import { IconArrow, IconCheck, IconClose, IconPlay, IconText, IconTelegram, Icon
 interface FormState {
   age: string; country: string; contactMethod: "telegram" | "whatsapp"; telegram: string; whatsapp: string; email: string;
   experience: "" | "yes" | "no"; experienceApps: string;
-  time: string; photos: File[];
+  time: string; photos: File[]; previews: string[];
 }
 
-const EMPTY: FormState = { age: "", country: "", contactMethod: "telegram", telegram: "", whatsapp: "", email: "", experience: "", experienceApps: "", time: "", photos: [] };
+const EMPTY: FormState = { age: "", country: "", contactMethod: "telegram", telegram: "", whatsapp: "", email: "", experience: "", experienceApps: "", time: "", photos: [], previews: [] };
 
 export default function ApplyPage() {
   const { t, lang } = useI18n();
@@ -54,9 +54,20 @@ export default function ApplyPage() {
   function addPhotos(files: FileList | null) {
     if (!files) return;
     const incoming = Array.from(files).filter((x) => x.type.startsWith("image/"));
-    setF((s) => ({ ...s, photos: [...s.photos, ...incoming].slice(0, 3) }));
+    const newPreviews = incoming.map((f) => { try { return URL.createObjectURL(f); } catch { return ""; } });
+    setF((s) => {
+      const combined = [...s.photos, ...incoming].slice(0, 3);
+      const combinedPrev = [...s.previews, ...newPreviews].slice(0, 3);
+      return { ...s, photos: combined, previews: combinedPrev };
+    });
   }
-  function removePhoto(i: number) { setF((s) => ({ ...s, photos: s.photos.filter((_, j) => j !== i) })); }
+  function removePhoto(i: number) {
+    setF((s) => {
+      const prev = s.previews[i];
+      if (prev) try { URL.revokeObjectURL(prev); } catch {}
+      return { ...s, photos: s.photos.filter((_, j) => j !== i), previews: s.previews.filter((_, j) => j !== i) };
+    });
+  }
 
   async function submit() {
     for (const s of [1, 4]) { const e = validate(s); if (e) { setErr(e); setStep(s); return; } }
@@ -175,10 +186,10 @@ export default function ApplyPage() {
                 {a.photoReqs.map((r, i) => <li key={i} className="flex items-center justify-center gap-1.5"><IconCheck className="w-3.5 h-3.5 text-neon-400 shrink-0" /> {r}</li>)}
               </ul>
               <div className="flex flex-wrap justify-center gap-3">
-                {f.photos.map((p, i) => (
+                {f.photos.map((_, i) => (
                   <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-line">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={URL.createObjectURL(p)} alt="" className="w-full h-full object-cover" />
+                    {f.previews[i] && <img src={f.previews[i]} alt="" className="w-full h-full object-cover" />}
                     <button onClick={() => removePhoto(i)} className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 grid place-items-center text-white"><IconClose className="w-3.5 h-3.5" /></button>
                   </div>
                 ))}

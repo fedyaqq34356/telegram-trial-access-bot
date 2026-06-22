@@ -137,6 +137,7 @@ function ApplicationCard({ id, statuses, onClose, onChanged }: {
   const [comment, setComment] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [photoIdx, setPhotoIdx] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
   async function setStatus(s: string) {
@@ -179,13 +180,30 @@ function ApplicationCard({ id, statuses, onClose, onChanged }: {
               <div className="label">Фото ({a.photos_count})</div>
               <div className="flex flex-wrap gap-2">
                 {Array.from({ length: a.photos_count }).map((_, i) => (
-                  <a key={i} href={`/api/applications/${id}/photo/${i}`} target="_blank" rel="noreferrer" title="Открыть в полном размере">
+                  <button key={i} onClick={() => setPhotoIdx(i)} title="Открыть в полном размере" className="rounded-lg overflow-hidden border border-line hover:border-brand-500/50 transition-colors">
                     <AuthImage path={`/applications/${id}/photo/${i}`} alt={`Фото ${i + 1}`}
-                               className="w-24 h-24 rounded-lg object-cover border border-line" />
-                  </a>
+                               className="w-24 h-24 object-cover" />
+                  </button>
                 ))}
               </div>
               <p className="text-[11px] text-slate-500 mt-1">Фото доступны только в CRM и не публикуются на сайте.</p>
+            </div>
+          )}
+
+          {photoIdx !== null && (
+            <div className="fixed inset-0 z-[60] grid place-items-center bg-black/80 backdrop-blur-sm p-4"
+                 onClick={() => setPhotoIdx(null)}>
+              <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setPhotoIdx(null)} className="absolute -top-8 right-0 text-slate-400 hover:text-white text-sm">✕ Закрыть</button>
+                <AuthImage path={`/applications/${id}/photo/${photoIdx}`} alt={`Фото ${photoIdx + 1}`}
+                           className="w-full max-h-[80vh] object-contain rounded-xl border border-line" />
+                <div className="flex justify-center gap-3 mt-3">
+                  {Array.from({ length: a.photos_count }).map((_, i) => (
+                    <button key={i} onClick={() => setPhotoIdx(i)}
+                            className={`w-2.5 h-2.5 rounded-full transition-colors ${i === photoIdx ? "bg-white" : "bg-white/30 hover:bg-white/60"}`} />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

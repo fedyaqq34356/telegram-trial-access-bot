@@ -25,7 +25,8 @@ export function onlineLabel(o?: { hours: number; minutes: number } | null): stri
 
 export function dt(iso?: string | null): string {
   if (!iso) return "—";
-  const d = new Date(iso);
+  const utc = /[Z+]/.test(iso) ? iso : iso + "Z";
+  const d = new Date(utc);
   return d.toLocaleString("ru-RU", {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",

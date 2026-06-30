@@ -15,10 +15,8 @@ STATUS_LABELS = {
     "working": "Начала работу",
 }
 
-
 def status_label(status: str) -> str:
     return STATUS_LABELS.get(status, status)
-
 
 def photos(app: Application) -> list[str]:
     try:
@@ -27,7 +25,6 @@ def photos(app: Application) -> list[str]:
     except Exception:
         return []
 
-
 def contact_display(app: Application) -> str:
     parts = []
     if app.contact_telegram:
@@ -35,7 +32,6 @@ def contact_display(app: Application) -> str:
     if app.contact_whatsapp:
         parts.append(app.contact_whatsapp)
     return " / ".join(parts) or "—"
-
 
 def serialize_event(ev: ApplicationStatusEvent) -> dict:
     return {
@@ -48,7 +44,6 @@ def serialize_event(ev: ApplicationStatusEvent) -> dict:
         "note": ev.note,
         "created_at": ev.created_at.isoformat() if ev.created_at else None,
     }
-
 
 def serialize_application(app: Application, with_events: bool = False) -> dict:
     data = {
@@ -72,7 +67,6 @@ def serialize_application(app: Application, with_events: bool = False) -> dict:
     if with_events:
         data["events"] = [serialize_event(e) for e in app.events]
     return data
-
 
 def build_notification_text(app: Application) -> str:
     """Формат уведомления о новой заявке (ТЗ §12)."""

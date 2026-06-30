@@ -11,15 +11,13 @@ from .sessions import sessions
 
 logger = logging.getLogger(__name__)
 
-
 def _save_session_cookies(db: Session, agency: Agency, parser: HaloLiveParser) -> None:
     cookies = parser.get_cookies()
     agency.phpsessid = cookies.get("PHPSESSID", agency.phpsessid)
     agency.acuid = cookies.get("acuid", agency.acuid)
-    agency.cookies_json = json.dumps(cookies)  # сохраняем все cookies (trusted_device и пр.)
+    agency.cookies_json = json.dumps(cookies)
     agency.session_updated_at = datetime.now(timezone.utc)
     db.commit()
-
 
 def ensure_session(db: Session, agency: Agency, tfa_code: str | None = None) -> str:
     """Гарантирует живую сессию для агентства.
@@ -30,7 +28,6 @@ def ensure_session(db: Session, agency: Agency, tfa_code: str | None = None) -> 
     if parser and parser.is_logged_in:
         return "ok"
 
-    # попытка восстановить из сохранённых кук (полный набор, иначе хотя бы PHPSESSID+acuid)
     if not tfa_code and (agency.cookies_json or agency.phpsessid or agency.acuid):
         candidate = HaloLiveParser(agency.url, agency.account, agency.password, agency.aemail, agency.apassword)
         stored = {}
@@ -45,7 +42,6 @@ def ensure_session(db: Session, agency: Agency, tfa_code: str | None = None) -> 
             sessions.set_active(agency.id, candidate)
             return "ok"
 
-    # полноценный логин (возможно с 2FA)
     parser = sessions.get_pending(agency.id) or HaloLiveParser(
         agency.url, agency.account, agency.password, agency.aemail, agency.apassword
     )
@@ -61,7 +57,6 @@ def ensure_session(db: Session, agency: Agency, tfa_code: str | None = None) -> 
     if result in ("timeout", "network"):
         return result
     return "login_failed"
-
 
 def sync_agency(db: Session, agency: Agency) -> dict:
     """Тянет данные одного агентства и обновляет кеш. Возвращает статус."""
@@ -80,7 +75,6 @@ def sync_agency(db: Session, agency: Agency) -> dict:
 
     count = persist_hosts(db, agency, raw)
 
-    # «Готово к выводу» — баланс агентства из Halo (v2WithdrawBalance)
     try:
         bal = parser.get_agent_balance()
         agency.withdrawable_coins = bal.get("coins", 0)
@@ -90,7 +84,6 @@ def sync_agency(db: Session, agency: Agency) -> dict:
     db.commit()
     _save_session_cookies(db, agency, parser)
     return {"agency": agency.name, "status": "ok", "count": count}
-
 
 def persist_hosts(db: Session, agency: Agency, raw: list) -> int:
     """Сохраняет свежий список девушек из Halo в локальный кеш (таблица hosts).
@@ -114,7 +107,6 @@ def persist_hosts(db: Session, agency: Agency, raw: list) -> int:
             setattr(host, key, value)
         count += 1
 
-    # удалить пропавших
     for did, host in existing.items():
         if did not in seen:
             db.delete(host)
@@ -123,9 +115,8 @@ def persist_hosts(db: Session, agency: Agency, raw: list) -> int:
     db.commit()
     return count
 
-
 def sync_all(db: Session, agency_ids: list[int] | None = None) -> list[dict]:
-    query = db.query(Agency).filter(Agency.is_active == True)  # noqa: E712
+    query = db.query(Agency).filter(Agency.is_active == True)
     if agency_ids is not None:
         query = query.filter(Agency.id.in_(agency_ids))
     results = []

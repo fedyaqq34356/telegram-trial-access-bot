@@ -6,7 +6,6 @@ logger = logging.getLogger(__name__)
 
 SESSION_EXPIRED = "SESSION_EXPIRED"
 
-
 class HaloLiveParser:
     def __init__(self, url, account, password, aemail, apassword):
         self.url = url.rstrip('/')
@@ -27,7 +26,6 @@ class HaloLiveParser:
             self.session.cookies.set("PHPSESSID", phpsessid, domain=self.url.replace("https://", "").replace("http://", ""))
             self.session.cookies.set("acuid", acuid, domain=self.url.replace("https://", "").replace("http://", ""))
 
-            # Проверяем что сессия живая — делаем тестовый запрос
             r = self.session.get(
                 f"{self.url}/anchor/anchorManage/loadExtAnchorInfoList",
                 params={"page": 1, "limit": 1},

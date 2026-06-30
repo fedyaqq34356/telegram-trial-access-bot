@@ -23,7 +23,7 @@ export default function SplitPage() {
   const splitAgencies = agencies.filter((a) => a.can_split);
   const scopeLabel = selected === null ? "Все доступные агентства" : agencies.find((a) => a.id === selected)?.name;
 
-  // Кулдаун 15 мин на агентство: считаем абсолютное время разблокировки и тикаем раз в секунду.
+  
   const [nowTs, setNowTs] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNowTs(Date.now()), 1000); return () => clearInterval(t); }, []);
   const availableAt = useRef<Record<number, number>>({});
@@ -47,11 +47,11 @@ export default function SplitPage() {
     if (pollRef.current) clearInterval(pollRef.current);
     setBusy(true); setError(""); setResult(null);
     try {
-      // Запуск идёт в фоне: бэкенд сразу отдаёт операцию со статусом «running».
+      
       const op = await api.post<SplitOp>("/split/run", { agency_id: selected ?? undefined });
       setResult(op);
       mutate();
-      // Опрашиваем историю, пока операция не завершится — без таймаутов и ошибок 500.
+      
       const startedAt = Date.now();
       pollRef.current = setInterval(async () => {
         try {
@@ -61,13 +61,13 @@ export default function SplitPage() {
             setResult(cur);
             if (cur.status !== "running") {
               clearInterval(pollRef.current!); pollRef.current = null;
-              setBusy(false); mutate(); reload();  // reload — подтянуть свежий кулдаун агентств
+              setBusy(false); mutate(); reload();  
             }
           }
-          if (Date.now() - startedAt > 10 * 60 * 1000) { // предохранитель: 10 мин
+          if (Date.now() - startedAt > 10 * 60 * 1000) { 
             clearInterval(pollRef.current!); pollRef.current = null; setBusy(false);
           }
-        } catch { /* временная сетевая ошибка — продолжаем опрос */ }
+        } catch {  }
       }, 2500);
     } catch (e) {
       setBusy(false);

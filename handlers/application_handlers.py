@@ -17,7 +17,6 @@ from config import Config
 logger = logging.getLogger(__name__)
 router = Router()
 
-
 def _set_status(config: Config, app_id: int, status: str) -> dict | None:
     try:
         r = requests.patch(
@@ -29,10 +28,9 @@ def _set_status(config: Config, app_id: int, status: str) -> dict | None:
         if r.ok:
             return r.json()
         logger.warning(f"set_status {app_id}->{status} failed: {r.status_code} {r.text[:200]}")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error(f"set_status error: {e}")
     return None
-
 
 def _get_application(config: Config, app_id: int) -> dict | None:
     try:
@@ -43,10 +41,9 @@ def _get_application(config: Config, app_id: int) -> dict | None:
         )
         if r.ok:
             return r.json()
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error(f"get_application error: {e}")
     return None
-
 
 def _contact_link(telegram: str, whatsapp: str) -> tuple[str | None, str]:
     """Возвращает (ссылка, отображение) для связи с девушкой."""
@@ -61,7 +58,6 @@ def _contact_link(telegram: str, whatsapp: str) -> tuple[str | None, str]:
         return f"https://wa.me/{digits}", f"WhatsApp: +{digits}"
     return None, (tg or wa or "контакт не указан")
 
-
 @router.callback_query(F.data.startswith("appapprove_"))
 async def app_approve(callback: CallbackQuery, config: Config):
     app_id = int(callback.data.split("_")[1])
@@ -72,7 +68,6 @@ async def app_approve(callback: CallbackQuery, config: Config):
     else:
         await callback.answer("Не удалось обновить статус (CRM недоступна)", show_alert=True)
 
-
 @router.callback_query(F.data.startswith("appreject_"))
 async def app_reject(callback: CallbackQuery, config: Config):
     app_id = int(callback.data.split("_")[1])
@@ -82,7 +77,6 @@ async def app_reject(callback: CallbackQuery, config: Config):
         await callback.answer("Отклонено")
     else:
         await callback.answer("Не удалось обновить статус (CRM недоступна)", show_alert=True)
-
 
 @router.callback_query(F.data.startswith("appwrite_"))
 async def app_write(callback: CallbackQuery, config: Config):

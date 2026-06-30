@@ -9,7 +9,6 @@ from ..services.sync_service import sync_all
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
-
 @router.post("")
 def trigger_sync(agency_id: int | None = None, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     scope = resolve_scope(db, user, agency_id)

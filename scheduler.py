@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 KYIV_TZ = timezone(timedelta(hours=3))
 
-
 async def check_expired_trials(bot: Bot, db: Database, admin_ids: list):
     expired = db.get_expired_trials()
     for user in expired:
@@ -26,7 +25,6 @@ async def check_expired_trials(bot: Bot, db: Database, admin_ids: list):
                 await bot.send_message(admin_id, text, reply_markup=keyboard)
             except Exception:
                 continue
-
 
 async def check_expiring_soon(bot: Bot, db: Database, admin_ids: list):
     expiring = db.get_users_expiring_soon(hours=24)
@@ -44,7 +42,6 @@ async def check_expiring_soon(bot: Bot, db: Database, admin_ids: list):
                 continue
         db.mark_notified(user['telegram_id'])
 
-
 def _fetch_all_hosts(parser):
     r = parser.session.get(
         f"{parser.url}/anchor/anchorManage/loadExtAnchorInfoList",
@@ -57,10 +54,8 @@ def _fetch_all_hosts(parser):
     )
     return r.json().get("data", [])
 
-
 def _is_account_active(host: dict) -> bool:
     return str(host.get("BanStatus", "2")).strip() == "2"
-
 
 async def _check_one_agency(agency, bot: Bot, db: Database, group_chat_id: int, force_notify: bool):
     from handlers.check_handlers import get_grade, check_risk, active_sessions
@@ -194,7 +189,6 @@ async def _check_one_agency(agency, bot: Bot, db: Database, group_chat_id: int, 
             except Exception as e:
                 logger.error(f"Failed to send final risk part for {agency_name}: {e}")
 
-
 async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list, force_notify: bool = False):
     if db.get_setting("notifications_enabled", "1") != "1":
         return
@@ -212,11 +206,9 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list, f
         return_exceptions=True
     )
 
-
 async def daily_morning_check(bot: Bot, db: Database, admin_ids: list):
     logger.info("Daily 08:30 Kyiv risk check started (force notify all)")
     await check_all_agencies_for_risk(bot, db, admin_ids, force_notify=True)
-
 
 async def periodic_risk_check(bot: Bot, db: Database, admin_ids: list):
     now_kyiv = datetime.now(KYIV_TZ)
@@ -224,7 +216,6 @@ async def periodic_risk_check(bot: Bot, db: Database, admin_ids: list):
         return
     logger.info("Periodic 6h risk check started (new risks only)")
     await check_all_agencies_for_risk(bot, db, admin_ids, force_notify=False)
-
 
 def setup_scheduler(bot: Bot, db: Database, admin_ids: list) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="Europe/Kyiv")

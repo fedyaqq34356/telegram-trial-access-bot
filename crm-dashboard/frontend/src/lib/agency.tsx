@@ -6,7 +6,7 @@ import type { Agency } from "./types";
 
 interface AgencyCtx {
   agencies: Agency[];
-  selected: number | null; // null = все доступные
+  selected: number | null; 
   setSelected: (id: number | null) => void;
   loading: boolean;
   reload: () => void;

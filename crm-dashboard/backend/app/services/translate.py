@@ -11,10 +11,8 @@ import requests
 logger = logging.getLogger(__name__)
 
 LANGS = ("ru", "en", "ua")
-# наши коды → коды Google (украинский у Google = "uk")
 _GOOGLE_CODE = {"ru": "ru", "en": "en", "ua": "uk"}
 _URL = "https://translate.googleapis.com/translate_a/single"
-
 
 def translate(text: str, target: str, source: str = "auto") -> str:
     """Переводит text на target ('ru'|'en'|'ua'). При ошибке вернёт исходный текст."""
@@ -32,12 +30,10 @@ def translate(text: str, target: str, source: str = "auto") -> str:
         )
         r.raise_for_status()
         data = r.json()
-        # data[0] — список сегментов [[перевод, оригинал, ...], ...]
         return "".join(seg[0] for seg in data[0] if seg and seg[0]) or text
-    except Exception as e:  # noqa: BLE001 — перевод не критичен
+    except Exception as e:
         logger.warning("translate failed (%s→%s): %s", source, target, e)
         return text
-
 
 def to_trilang(text: str, source: str) -> dict:
     """{'ru':..,'en':..,'ua':..}. Для исходного языка берём текст как есть."""
@@ -46,7 +42,6 @@ def to_trilang(text: str, source: str) -> dict:
     for lang in LANGS:
         out[lang] = text if lang == source else translate(text, lang, source)
     return out
-
 
 def to_trilang_bulk(texts: list, source: str) -> dict:
     """Переводит много текстов сразу (параллельно, с дедупликацией).

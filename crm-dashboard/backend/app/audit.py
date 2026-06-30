@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session
 
 from .models import ActionLog, SecurityLog, User
 
-
 def log_action(db: Session, user: User | None, action_type: str, **kwargs) -> None:
     entry = ActionLog(
         user_id=user.id if user else None,
@@ -18,7 +17,6 @@ def log_action(db: Session, user: User | None, action_type: str, **kwargs) -> No
     )
     db.add(entry)
     db.commit()
-
 
 def log_security(db: Session, user: User | None, action: str, ip: str = "", ua: str = "") -> None:
     entry = SecurityLog(

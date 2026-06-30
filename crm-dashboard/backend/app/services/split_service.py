@@ -17,60 +17,37 @@ from .sync_service import ensure_session, persist_hosts
 
 logger = logging.getLogger(__name__)
 
-# splitCoins ВСЕГДА отвечает code:0 (даже когда сплитить нечего), а доля агентства
-# зачисляется в баланс с НЕПРЕДСКАЗУЕМОЙ задержкой (трикл 15-30с) — по ответу и по
-# балансу в реальном времени реальный сплит не определить.
-#
-# Надёжный признак: после РЕАЛЬНОГО сплита поле Diamond девушки в списке обнуляется
-# (оседает за ~10-20с), а у фантома (сплитить было нечего) — остаётся прежним.
-# Поэтому: сплитим → ждём оседания списка → перечитываем → у кого Diamond упал, тот
-# сплитнут реально, и его доля = Diamond_до × ratio (точная формула, проверено
-# на живых данных: 760→152, 307→61, сумма = реальная дельта баланса).
-#
-# Кулдаун обязателен: в окне быстрых повторных кликов список показывает stale-high
-# Diamond уже сплитнутой девушки; без кулдауна он за наши 25с осядет до 0 и даст
-# ЛОЖНО-положительный «реальный сплит». Кулдаун пропускает недавно сплитнутых.
-RESPLIT_COOLDOWN = 120.0      # не сплитить ту же девушку повторно в течение, сек
-LIST_SETTLE_SECONDS = 25.0    # ждать оседания списка Diamond перед проверкой
-DROP_FRACTION = 0.5           # Diamond упал ниже этой доли от исходного → реальный сплит
-# Halo лимитит частоту сплитов: за один заход проходит не всё, остальные отвечают code:0,
-# но реально не списываются. Поэтому не принятых (Diamond не упал) повторяем несколькими
-# раундами с паузой — почти всегда берёт со 2-3 попытки в рамках ОДНОГО прогона.
-SPLIT_GAP = 2.0               # пауза между отдельными вызовами splitCoins, сек
-SPLIT_MAX_ROUNDS = 6          # раундов повтора не принятых Halo (~25с каждый → до ~2.5 мин)
-# Кулдаун на агентство: повторный сплит ОДНОГО агентства не раньше, чем через 15 мин.
-# У каждого агентства свой независимый таймер (хранится в Agency.last_split_at).
-SPLIT_AGENCY_COOLDOWN = 15 * 60   # сек
+RESPLIT_COOLDOWN = 120.0
+LIST_SETTLE_SECONDS = 25.0
+DROP_FRACTION = 0.5
+SPLIT_GAP = 2.0
+SPLIT_MAX_ROUNDS = 6
+SPLIT_AGENCY_COOLDOWN = 15 * 60
 _recent_splits: dict[tuple[int, str], float] = {}
 _recent_lock = threading.Lock()
-
 
 def agency_cooldown_remaining(agency: Agency) -> int:
     """Сколько секунд осталось до следующего разрешённого сплита этого агентства (0 = можно)."""
     ts = agency.last_split_at
     if not ts:
         return 0
-    if ts.tzinfo is None:                      # из SQLite приходит naive — считаем как UTC
+    if ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
     elapsed = (datetime.now(timezone.utc) - ts).total_seconds()
     return max(0, int(SPLIT_AGENCY_COOLDOWN - elapsed))
-
 
 def _recently_split(agency_id: int, account_id: str) -> bool:
     with _recent_lock:
         ts = _recent_splits.get((agency_id, account_id))
         return ts is not None and (time.time() - ts) < RESPLIT_COOLDOWN
 
-
 def _mark_split(agency_id: int, account_id: str) -> None:
     with _recent_lock:
         now = time.time()
         _recent_splits[(agency_id, account_id)] = now
-        # подчистка старых записей, чтобы словарь не рос
         for k, t in list(_recent_splits.items()):
             if now - t > RESPLIT_COOLDOWN * 4:
                 _recent_splits.pop(k, None)
-
 
 def _create_op(db: Session, user_id: int | None, agencies: list[Agency], scope_label: str) -> SplitOperation:
     op = SplitOperation(
@@ -84,7 +61,6 @@ def _create_op(db: Session, user_id: int | None, agencies: list[Agency], scope_l
     db.commit()
     db.refresh(op)
     return op
-
 
 def start_split_async(user_id: int | None, agency_ids: list[int], scope_label: str) -> int:
     """Создаёт операцию Split (status=running) и запускает обработку в фоне.
@@ -105,7 +81,7 @@ def start_split_async(user_id: int | None, agency_ids: list[int], scope_label: s
             op = wdb.get(SplitOperation, op_id)
             ags = wdb.query(Agency).filter(Agency.id.in_(agency_ids)).order_by(Agency.name).all()
             _run_loop(wdb, op, ags)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"split worker {op_id} failed: {e}")
             try:
                 op = wdb.get(SplitOperation, op_id)
@@ -122,12 +98,10 @@ def start_split_async(user_id: int | None, agency_ids: list[int], scope_label: s
     threading.Thread(target=worker, daemon=True, name=f"split-{op_id}").start()
     return op_id
 
-
 def run_split(db: Session, user: User | None, agencies: list[Agency], scope_label: str) -> SplitOperation:
     """Синхронный запуск (для тестов/внутреннего использования). Веб использует start_split_async."""
     op = _create_op(db, user.id if user else None, agencies, scope_label)
     return _run_loop(db, op, agencies)
-
 
 def _run_loop(db: Session, op: SplitOperation, agencies: list[Agency]) -> SplitOperation:
     min_balance = int(float(app_settings.get_setting(db, "split_min_balance")))
@@ -144,7 +118,6 @@ def _run_loop(db: Session, op: SplitOperation, agencies: list[Agency]) -> SplitO
 
     for agency in agencies:
         a_processed = a_skipped = a_errors = a_total = a_agency = 0
-        # Кулдаун 15 мин на агентство: повторный сплит того же агентства блокируется.
         remaining = agency_cooldown_remaining(agency)
         if remaining > 0:
             mins = (remaining + 59) // 60
@@ -161,13 +134,10 @@ def _run_loop(db: Session, op: SplitOperation, agencies: list[Agency]) -> SplitO
             bump("ошибка получения данных")
             continue
 
-        # Фиксируем момент сплита СРАЗУ — кулдаун стартует с начала прогона и блокирует
-        # повторные клики, пока агентство обрабатывается (~80с).
         agency.last_split_at = datetime.now(timezone.utc)
         db.commit()
 
         parser = sessions.get_active(agency.id)
-        # Свежие данные перед сплитом: «перезагружаем» панель и тянем актуальный список.
         parser.refresh_panel()
         raw = parser.fetch_all_hosts()
         if raw is SESSION_EXPIRED:
@@ -176,13 +146,11 @@ def _run_loop(db: Session, op: SplitOperation, agencies: list[Agency]) -> SplitO
             per_agency.append({"agency": agency.name, "status": "session_expired"})
             bump("ошибка получения данных")
             continue
-        # Сохраняем свежие данные в кеш CRM, чтобы отображение тоже обновилось.
         try:
             persist_hosts(db, agency, raw)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.warning(f"persist_hosts {agency.name}: {e}")
 
-        # attempted: {account_id: (balance_до, frac, name)} — все, кому отправили splitCoins
         attempted: dict[str, tuple[int, float, str]] = {}
 
         for raw_host in raw:
@@ -191,25 +159,20 @@ def _run_loop(db: Session, op: SplitOperation, agencies: list[Agency]) -> SplitO
                 a_skipped += 1
                 bump("пользователь заблокирован")
                 continue
-            # Сплитятся ТЕКУЩИЕ pending-коины = поле Diamond (balance_coins).
-            # SplitDiamond — это УЖЕ сплитнутые коины (трогать нельзя, иначе ложный успех).
             balance = data["balance_coins"]
             if balance < min_balance:
                 a_skipped += 1
                 bump("баланс ниже лимита")
                 continue
-            # Halo блокирует сплит при dislike rate >= 0.4. Dislike rate = DownRate (не ReceiveRate!)
             if data["down_rate"] >= skip_receive:
                 a_skipped += 1
                 bump("высокий коэффициент дизлайков")
                 continue
             account_id = data["account_id"]
-            # Кулдаун: список Diamond отстаёт, повторный сплит недавно сплитнутой = ложный успех.
             if _recently_split(agency.id, account_id):
                 a_skipped += 1
                 bump("уже сплитнута недавно")
                 continue
-            # splitCoins ждёт ВНУТРЕННИЙ AccountId (подтверждено перехватом JS)
             res = parser.split_one(account_id)
             if not res["ok"]:
                 a_errors += 1
@@ -217,14 +180,12 @@ def _run_loop(db: Session, op: SplitOperation, agencies: list[Agency]) -> SplitO
                     sessions.drop_active(agency.id)
                     bump("ошибка выполнения операции")
                 continue
-            # code:0 = запрос принят. Реальность проверим по падению Diamond ниже.
             _mark_split(agency.id, account_id)
             frac = min(max(int(data.get("ratio") or 0) / 10000.0, 0.0), 0.99)
             attempted[account_id] = (balance, frac, data.get("nickname") or account_id)
             time.sleep(SPLIT_GAP)
 
-        # Подтверждаем сплиты по падению Diamond и ПОВТОРЯЕМ не принятых Halo (rate-limit).
-        pending = dict(attempted)   # account_id -> (bal0, frac, name) — ещё не подтверждённые
+        pending = dict(attempted)
         rounds = 0
         while pending and rounds < SPLIT_MAX_ROUNDS:
             rounds += 1
@@ -237,17 +198,15 @@ def _run_loop(db: Session, op: SplitOperation, agencies: list[Agency]) -> SplitO
             for h in raw2:
                 d2 = normalize_host(h)
                 new_diamond[d2["account_id"]] = d2["balance_coins"]
-            # засчитываем тех, у кого Diamond реально упал
             for account_id, (bal0, frac, name) in list(pending.items()):
                 nd = new_diamond.get(account_id, bal0)
-                if nd < bal0 * DROP_FRACTION:        # Diamond списан → реальный сплит
+                if nd < bal0 * DROP_FRACTION:
                     a_processed += 1
                     a_total += bal0
                     a_agency += round(bal0 * frac)
                     pending.pop(account_id)
             if not pending or rounds >= SPLIT_MAX_ROUNDS:
                 break
-            # повторяем оставшихся (Halo не принял с первого раза), разнося по времени
             for account_id in list(pending):
                 r = parser.split_one(account_id)
                 if not r["ok"] and r["code"] == -1:
@@ -255,18 +214,15 @@ def _run_loop(db: Session, op: SplitOperation, agencies: list[Agency]) -> SplitO
                     break
                 time.sleep(SPLIT_GAP)
 
-        # не принятые Halo после всех раундов
         for account_id in pending:
             a_skipped += 1
             bump("сплит не выполнен (Halo не принял, повторите позже)")
 
-        # Обновляем «Готово к выводу» (баланс растёт с задержкой, но к следующему sync осядет).
         try:
             agency.withdrawable_coins = parser.get_agent_balance().get("coins", agency.withdrawable_coins)
         except Exception:
             pass
 
-        # сворачиваем agency-local в глобальные итоги
         processed += a_processed
         skipped += a_skipped
         errors += a_errors

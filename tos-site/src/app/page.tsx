@@ -16,7 +16,7 @@ export default function HomePage() {
   const { t } = useI18n();
   return (
     <>
-      {/* HERO */}
+      {}
       <Section className="!pt-12 sm:!pt-16">
         <div className="grid lg:grid-cols-2 gap-10 items-center">
           <Reveal>
@@ -47,7 +47,7 @@ export default function HomePage() {
         </div>
       </Section>
 
-      {/* INCOME */}
+      {}
       <Section id="income">
         <SectionHeading title={t.home.incomeTitle} center />
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -58,7 +58,7 @@ export default function HomePage() {
         </div>
       </Section>
 
-      {/* WHY */}
+      {}
       <Section className="!py-10">
         <SectionHeading title={t.home.whyTitle} center />
         <div className="flex flex-wrap justify-center gap-3">
@@ -76,7 +76,7 @@ export default function HomePage() {
         </div>
       </Section>
 
-      {/* HOW */}
+      {}
       <Section id="how">
         <SectionHeading title={t.home.howTitle} center />
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">

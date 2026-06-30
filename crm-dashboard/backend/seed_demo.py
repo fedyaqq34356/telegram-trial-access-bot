@@ -16,7 +16,6 @@ NAMES = ["Lana", "Mia", "Sofia", "Emma", "Olivia", "Amelia", "Jane", "Ava", "Isl
 ONLINE = ["2ч 45м", "1ч 20м", "3ч 10м", "0ч 40м", "4ч 50м", "1ч 55м", "5ч 05м"]
 MONTH_ONLINE = ["89ч 20м", "40ч 10м", "55ч 30м", "102ч 15м", "12ч 05м", "33ч 40м"]
 
-
 def clear(db):
     db.query(Host).delete()
     db.query(SplitOperation).delete()
@@ -25,7 +24,6 @@ def clear(db):
         db.delete(a)
     db.commit()
     print("Демо-данные удалены.")
-
 
 def seed(db):
     clear(db)
@@ -71,7 +69,6 @@ def seed(db):
             ))
     db.commit()
 
-    # история split
     for i, a in enumerate(agencies):
         db.add(SplitOperation(
             scope_label=a.name, agency_id=a.id, processed=random.randint(40, 120),
@@ -88,7 +85,6 @@ def seed(db):
         finished_at=datetime.now(timezone.utc), duration_seconds=72.5, details="{}",
     ))
 
-    # журнал
     for at, msg in [
         ("ratio_change", ""), ("split", "Запущен Split"), ("sync", "Обновление данных"),
         ("ratio_change", ""), ("login", "Вход в систему"),
@@ -100,7 +96,6 @@ def seed(db):
     db.commit()
     total = db.query(Host).count()
     print(f"Готово: {len(agencies)} агентства, {total} девушек, история Split и журнал засеяны.")
-
 
 if __name__ == "__main__":
     db = SessionLocal()

@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 API = "https://api.telegram.org/bot{token}/{method}"
 
-
 def build_contact_url(telegram: str, whatsapp: str) -> str | None:
     """Ссылка для кнопки «Написать»: t.me/<username> или wa.me/<phone>."""
     tg = (telegram or "").strip()
@@ -28,7 +27,6 @@ def build_contact_url(telegram: str, whatsapp: str) -> str | None:
         return f"https://wa.me/{digits}"
     return None
 
-
 def _keyboard(app_id: int, telegram: str, whatsapp: str) -> dict:
     write_url = build_contact_url(telegram, whatsapp)
     write_btn = (
@@ -41,7 +39,6 @@ def _keyboard(app_id: int, telegram: str, whatsapp: str) -> dict:
         write_btn,
         {"text": "❌ Отклонить", "callback_data": f"appreject_{app_id}"},
     ]]}
-
 
 def notify_new_application(
     *, token: str, owner_id: str | int, text: str, photo_paths: list[str],
@@ -76,14 +73,12 @@ def notify_new_application(
             )
             if not r.ok:
                 logger.warning(f"sendMediaGroup failed: {r.text[:300]}")
-                # запасной путь — просто текст
                 requests.post(API.format(token=token, method="sendMessage"),
                               data={"chat_id": owner, "text": text, "parse_mode": "HTML"}, timeout=20)
         else:
             requests.post(API.format(token=token, method="sendMessage"),
                           data={"chat_id": owner, "text": text, "parse_mode": "HTML"}, timeout=20)
 
-        # отдельное сообщение с кнопками (у медиагруппы клавиатуры быть не может)
         requests.post(
             API.format(token=token, method="sendMessage"),
             data={
@@ -92,5 +87,5 @@ def notify_new_application(
                 "reply_markup": json.dumps(_keyboard(app_id, telegram, whatsapp)),
             }, timeout=20,
         )
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error(f"notify_new_application failed: {e}")

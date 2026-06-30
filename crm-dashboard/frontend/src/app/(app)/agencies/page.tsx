@@ -119,7 +119,7 @@ function AgencyForm({ agency, onClose, onSaved }: { agency: Partial<Agency>; onC
       let saved: Agency;
       if (isNew) saved = await api.post<Agency>("/agencies", f);
       else saved = await api.put<Agency>(`/agencies/${agency.id}`, f);
-      // пробуем войти в Halo
+      
       const res = await api.post<{ status: string }>(`/agencies/${saved.id}/login`);
       if (res.status === "need_tfa") { setTfa({ agencyId: saved.id }); setBusy(false); return; }
       onSaved();

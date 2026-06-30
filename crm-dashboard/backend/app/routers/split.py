@@ -13,7 +13,6 @@ from ..services.split_service import start_split_async
 
 router = APIRouter(prefix="/split", tags=["split"])
 
-
 def _serialize(op: SplitOperation, coins_per_usd: float) -> dict:
     details = {}
     try:
@@ -40,11 +39,9 @@ def _serialize(op: SplitOperation, coins_per_usd: float) -> dict:
         "duration_seconds": op.duration_seconds,
     }
 
-
 @router.post("/run")
 def run(payload: SplitRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     scope = resolve_scope(db, user, payload.agency_id)
-    # фильтруем по праву can_split
     allowed = [aid for aid in scope if can_perform(db, user, aid, "can_split")]
     if not allowed:
         raise HTTPException(status_code=403, detail="Нет прав на запуск Split по выбранным агентствам")
@@ -52,15 +49,12 @@ def run(payload: SplitRequest, user: User = Depends(get_current_user), db: Sessi
     agencies = db.query(Agency).filter(Agency.id.in_(allowed)).order_by(Agency.name).all()
     scope_label = agencies[0].name if len(agencies) == 1 else "Все агентства"
 
-    # Split может идти 60+ сек — запускаем в фоне и сразу отдаём операцию (status=running).
-    # Фронт опрашивает /split/history и показывает результат, когда статус сменится на «Выполнено».
     op_id = start_split_async(user.id, allowed, scope_label)
     log_action(db, user, "split", agency_name=scope_label, status="running",
                message=f"Запущен Split по области «{scope_label}»")
 
     op = db.get(SplitOperation, op_id)
     return _serialize(op, app_settings.get_coins_per_usd(db))
-
 
 @router.get("/history")
 def history(
@@ -76,7 +70,6 @@ def history(
     if agency_id is not None:
         q = q.filter(SplitOperation.agency_id == agency_id)
     else:
-        # показываем общие (agency_id is None) + по доступным агентствам
         q = q.filter((SplitOperation.agency_id.is_(None)) | (SplitOperation.agency_id.in_(scope)))
     total = q.count()
     ops = q.order_by(SplitOperation.id.desc()).offset((page - 1) * limit).limit(limit).all()

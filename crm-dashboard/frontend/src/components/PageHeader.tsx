@@ -16,7 +16,7 @@ export function RefreshButton() {
     try {
       await api.post(`/sync${qs({ agency_id: selected ?? undefined })}`);
     } catch {}
-    // ревалидируем все запросы
+    
     await mutate(() => true, undefined, { revalidate: true });
     setLoading(false);
   }

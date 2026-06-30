@@ -11,7 +11,7 @@ const config: Config = {
           card: "#13101f",
         },
         line: "rgba(255,255,255,0.08)",
-        // фиолетовый бренд
+        
         brand: {
           100: "#ece4ff",
           200: "#d8c6ff",
@@ -21,7 +21,7 @@ const config: Config = {
           600: "#7c3aed",
           700: "#6d28d9",
         },
-        // neon pink акцент
+        
         neon: {
           300: "#ff9ad4",
           400: "#ff5fb6",

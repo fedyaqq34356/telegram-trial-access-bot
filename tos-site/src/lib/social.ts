@@ -1,4 +1,4 @@
-// Превращает username/ссылку в корректный URL для соцсетей.
+
 export function socialHref(kind: "telegram" | "instagram" | "tiktok" | "whatsapp", value: string): string {
   const v = (value || "").trim();
   if (!v) return "#";

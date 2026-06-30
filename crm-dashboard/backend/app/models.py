@@ -14,10 +14,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
-
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
-
 
 class Agency(Base):
     __tablename__ = "agencies"
@@ -34,20 +32,19 @@ class Agency(Base):
 
     phpsessid: Mapped[str] = mapped_column(String(255), default="")
     acuid: Mapped[str] = mapped_column(String(255), default="")
-    cookies_json: Mapped[str] = mapped_column(Text, default="")  # все cookies Halo (trusted_device, acuemail, acudate, …)
+    cookies_json: Mapped[str] = mapped_column(Text, default="")
     session_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    withdrawable_coins: Mapped[int] = mapped_column(Integer, default=0)  # «Готово к выводу» (v2WithdrawBalance из Halo)
+    withdrawable_coins: Mapped[int] = mapped_column(Integer, default=0)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    last_split_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # для кулдауна 15 мин на агентство
+    last_split_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     hosts: Mapped[list["Host"]] = relationship(back_populates="agency", cascade="all, delete-orphan")
     accesses: Mapped[list["UserAgencyAccess"]] = relationship(
         back_populates="agency", cascade="all, delete-orphan"
     )
-
 
 class Host(Base):
     """Кеш данных девушек, полученных из Halo Live."""
@@ -65,7 +62,7 @@ class Host(Base):
     agent_name: Mapped[str] = mapped_column(String(255), default="")
     email: Mapped[str] = mapped_column(String(255), default="")
 
-    ratio: Mapped[int] = mapped_column(Integer, default=0)  # 2000 = 20%
+    ratio: Mapped[int] = mapped_column(Integer, default=0)
     down_rate: Mapped[float] = mapped_column(Float, default=0.0)
     real_down_rate: Mapped[float] = mapped_column(Float, default=0.0)
     receive_rate: Mapped[float] = mapped_column(Float, default=0.0)
@@ -91,7 +88,6 @@ class Host(Base):
 
     agency: Mapped["Agency"] = relationship(back_populates="hosts")
 
-
 class User(Base):
     """Пользователь CRM."""
 
@@ -101,7 +97,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(255), default="")
-    role: Mapped[str] = mapped_column(String(32), default="admin")  # superadmin | admin
+    role: Mapped[str] = mapped_column(String(32), default="admin")
     can_manage_users: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -114,7 +110,6 @@ class User(Base):
     @property
     def is_superadmin(self) -> bool:
         return self.role == "superadmin"
-
 
 class UserAgencyAccess(Base):
     __tablename__ = "user_agency_access"
@@ -131,28 +126,26 @@ class UserAgencyAccess(Base):
     user: Mapped["User"] = relationship(back_populates="accesses")
     agency: Mapped["Agency"] = relationship(back_populates="accesses")
 
-
 class SplitOperation(Base):
     __tablename__ = "split_operations"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    scope_label: Mapped[str] = mapped_column(String(255), default="")  # "Все агентства" or agency name
+    scope_label: Mapped[str] = mapped_column(String(255), default="")
     agency_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     processed: Mapped[int] = mapped_column(Integer, default=0)
     skipped: Mapped[int] = mapped_column(Integer, default=0)
     errors: Mapped[int] = mapped_column(Integer, default=0)
-    total_amount_coins: Mapped[int] = mapped_column(Integer, default=0)       # общий сплит (девушки + агентство)
-    agency_amount_coins: Mapped[int] = mapped_column(Integer, default=0)      # «мой заработок» (доля агентства)
+    total_amount_coins: Mapped[int] = mapped_column(Integer, default=0)
+    agency_amount_coins: Mapped[int] = mapped_column(Integer, default=0)
 
-    status: Mapped[str] = mapped_column(String(32), default="running")  # running|done|partial|error
-    details: Mapped[str] = mapped_column(Text, default="")  # JSON
+    status: Mapped[str] = mapped_column(String(32), default="running")
+    details: Mapped[str] = mapped_column(Text, default="")
 
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     duration_seconds: Mapped[float] = mapped_column(Float, default=0.0)
-
 
 class ActionLog(Base):
     __tablename__ = "action_log"
@@ -161,7 +154,7 @@ class ActionLog(Base):
     user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     username: Mapped[str] = mapped_column(String(128), default="")
     agency_name: Mapped[str] = mapped_column(String(255), default="")
-    action_type: Mapped[str] = mapped_column(String(64), default="")  # ratio_change|split|login|sync
+    action_type: Mapped[str] = mapped_column(String(64), default="")
     anchor_id: Mapped[str] = mapped_column(String(64), default="")
     target: Mapped[str] = mapped_column(String(255), default="")
     old_value: Mapped[str] = mapped_column(String(255), default="")
@@ -169,7 +162,6 @@ class ActionLog(Base):
     status: Mapped[str] = mapped_column(String(32), default="")
     message: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
-
 
 class SecurityLog(Base):
     __tablename__ = "security_logs"
@@ -182,28 +174,23 @@ class SecurityLog(Base):
     user_agent: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
 
-
 class Setting(Base):
     __tablename__ = "settings"
 
     key: Mapped[str] = mapped_column(String(128), primary_key=True)
     value: Mapped[str] = mapped_column(Text, default="")
 
-
-# ── Заявки с публичного сайта (tos-site) ──
-# Порядок статусов = жизненный цикл заявки.
 APPLICATION_STATUSES = [
-    "new",              # Новая
-    "in_progress",      # В работе
-    "contacted",        # Связались
-    "approved",         # Одобрена
-    "rejected",         # Отклонена
-    "registered",       # Зарегистрирована
-    "office_activated", # Активирована офисом
-    "training",         # На обучении
-    "working",          # Начала работу
+    "new",
+    "in_progress",
+    "contacted",
+    "approved",
+    "rejected",
+    "registered",
+    "office_activated",
+    "training",
+    "working",
 ]
-
 
 class Application(Base):
     __tablename__ = "applications"
@@ -218,7 +205,7 @@ class Application(Base):
     experience: Mapped[bool] = mapped_column(Boolean, default=False)
     experience_apps: Mapped[str] = mapped_column(Text, default="")
     time_commitment: Mapped[str] = mapped_column(String(255), default="")
-    photos_json: Mapped[str] = mapped_column(Text, default="[]")  # список относительных путей к фото
+    photos_json: Mapped[str] = mapped_column(Text, default="[]")
     status: Mapped[str] = mapped_column(String(32), default="new", index=True)
     manager_comment: Mapped[str] = mapped_column(Text, default="")
     source: Mapped[str] = mapped_column(String(64), default="site")
@@ -228,7 +215,6 @@ class Application(Base):
         order_by="ApplicationStatusEvent.id",
     )
 
-
 class ApplicationStatusEvent(Base):
     __tablename__ = "application_status_events"
 
@@ -236,12 +222,11 @@ class ApplicationStatusEvent(Base):
     application_id: Mapped[int] = mapped_column(ForeignKey("applications.id", ondelete="CASCADE"), index=True)
     old_status: Mapped[str] = mapped_column(String(32), default="")
     new_status: Mapped[str] = mapped_column(String(32), default="")
-    actor: Mapped[str] = mapped_column(String(120), default="")  # «сайт», «бот», имя менеджера
+    actor: Mapped[str] = mapped_column(String(120), default="")
     note: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     application: Mapped["Application"] = relationship(back_populates="events")
-
 
 class Testimonial(Base):
     """Отзыв девушки (скрин ТГ-переписки) для публичного сайта."""
@@ -252,23 +237,21 @@ class Testimonial(Base):
     age: Mapped[int] = mapped_column(Integer, default=0)
     result_text: Mapped[str] = mapped_column(Text, default="")
     screenshot_path: Mapped[str] = mapped_column(Text, default="")
-    data_json: Mapped[str] = mapped_column(Text, default="")  # структурированный отзыв (Telegram-формат, мультиязычный)
+    data_json: Mapped[str] = mapped_column(Text, default="")
     is_visible: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-
 
 class TrainingAccess(Base):
     """Лог входов на закрытую страницу «Обучение» (для главного админа)."""
     __tablename__ = "training_access"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    app_id_entered: Mapped[str] = mapped_column(String(120), default="")  # «Твоё ID в приложении»
+    app_id_entered: Mapped[str] = mapped_column(String(120), default="")
     password_ok: Mapped[bool] = mapped_column(Boolean, default=False)
     ip: Mapped[str] = mapped_column(String(64), default="")
     user_agent: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
-
 
 class TrainingProgress(Base):
     """Прогресс прохождения обучения девушкой (по её Halo ID)."""
@@ -277,7 +260,7 @@ class TrainingProgress(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     halo_id: Mapped[str] = mapped_column(String(64), index=True)
-    kind: Mapped[str] = mapped_column(String(16), default="quick")  # quick | full
+    kind: Mapped[str] = mapped_column(String(16), default="quick")
     steps_done: Mapped[int] = mapped_column(Integer, default=0)
     steps_total: Mapped[int] = mapped_column(Integer, default=0)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)

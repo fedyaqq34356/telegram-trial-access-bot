@@ -1,5 +1,5 @@
-// Базовый URL backend-а. В деве next.config проксирует /api на :8000,
-// в проде nginx отдаёт /api на backend. Можно переопределить NEXT_PUBLIC_API_BASE.
+
+
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
 
 export interface AdminReview {
@@ -52,7 +52,7 @@ export async function reportProgress(password: string, haloId: string, kind: "qu
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password, halo_id: haloId, kind, steps_done: stepsDone, steps_total: stepsTotal, completed }),
     });
-  } catch { /* прогресс не критичен */ }
+  } catch {  }
 }
 
 export interface TrainingData { lessons_full: Record<string, Lesson[]>; lessons_quick: Record<string, Lesson[]> }

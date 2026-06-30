@@ -8,5 +8,4 @@ AGENCIES = [
         "apassword": "TosAgency2025",
         "tfa_required": True
     },
-    # Add more agencies here
 ]

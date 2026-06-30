@@ -8,7 +8,7 @@ import { IconChevron } from "@/components/icons";
 export default function FaqPage() {
   const { t, lang } = useI18n();
   const content = useSiteContent();
-  // если админ задал FAQ — берём на текущем языке, иначе дефолтные из словаря
+  
   const adminFaq = content?.faq?.[lang] ?? [];
   const items = adminFaq.length > 0 ? adminFaq : t.faq.items;
   const [open, setOpen] = useState<number | null>(0);

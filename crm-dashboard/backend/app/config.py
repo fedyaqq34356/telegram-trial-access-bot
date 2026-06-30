@@ -2,7 +2,6 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -21,11 +20,10 @@ class Settings(BaseSettings):
 
     sync_interval_minutes: int = 15
 
-    # ── интеграция с публичным сайтом и Telegram-ботом ──
-    bot_token: str = ""                       # токен Telegram-бота для отправки уведомлений о заявках
-    owner_telegram_id: int = 0                # запасной получатель (если не задан в настройках CRM)
-    internal_api_token: str = "change-me-internal-token"  # секрет для вызовов бот→CRM
-    public_site_origin: str = "http://localhost:3001"     # origin сайта tos-site для CORS
+    bot_token: str = ""
+    owner_telegram_id: int = 0
+    internal_api_token: str = "change-me-internal-token"
+    public_site_origin: str = "http://localhost:3001"
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -34,10 +32,8 @@ class Settings(BaseSettings):
             origins.append(self.public_site_origin.strip())
         return origins
 
-
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
 
 settings = get_settings()

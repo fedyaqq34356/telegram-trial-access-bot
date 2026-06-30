@@ -20,13 +20,11 @@ router = APIRouter(prefix="/site-content", tags=["site-content"])
 
 LANGS = ("ru", "en", "ua")
 
-
 def _parse(t: Testimonial) -> dict:
     try:
         return json.loads(t.data_json) if t.data_json else {}
     except Exception:
         return {}
-
 
 def _serialize(t: Testimonial) -> dict:
     """Для редактирования в CRM: отдаём значения на языке ввода (source_lang)."""
@@ -51,7 +49,6 @@ def _serialize(t: Testimonial) -> dict:
         "created_at": t.created_at.isoformat() if t.created_at else None,
     }
 
-
 def _build_data(p: dict) -> dict:
     """Из ввода админа строим мультиязычный data_json (переводим тексты)."""
     lang = p.get("lang", "ru")
@@ -71,13 +68,10 @@ def _build_data(p: dict) -> dict:
         "msg_reply": translate.to_trilang(p.get("msg_reply") or "", lang),
     }
 
-
-# ─────────────────────────── отзывы ───────────────────────────
 @router.get("/testimonials")
 def list_testimonials(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     rows = db.query(Testimonial).order_by(Testimonial.sort_order, Testimonial.id.desc()).all()
     return [_serialize(t) for t in rows]
-
 
 @router.post("/testimonials")
 def create_testimonial(p: dict = Body(...), admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
@@ -94,13 +88,11 @@ def create_testimonial(p: dict = Body(...), admin: User = Depends(require_supera
     db.refresh(t)
     return _serialize(t)
 
-
 @router.put("/testimonials/{tid}")
 def update_testimonial(tid: int, p: dict = Body(...), admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     t = db.get(Testimonial, tid)
     if not t:
         raise HTTPException(status_code=404, detail="Отзыв не найден")
-    # частичное обновление видимости/порядка без перевода
     if set(p.keys()) <= {"is_visible", "sort_order"}:
         if "is_visible" in p:
             t.is_visible = bool(p["is_visible"])
@@ -119,7 +111,6 @@ def update_testimonial(tid: int, p: dict = Body(...), admin: User = Depends(requ
     db.refresh(t)
     return _serialize(t)
 
-
 @router.delete("/testimonials/{tid}")
 def delete_testimonial(tid: int, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     t = db.get(Testimonial, tid)
@@ -129,15 +120,12 @@ def delete_testimonial(tid: int, admin: User = Depends(require_superadmin), db: 
     db.commit()
     return {"ok": True}
 
-
-# ─────────────────────────── FAQ ───────────────────────────
 def _load_faq(db: Session) -> list:
     try:
         raw = json.loads(app_settings.get_setting(db, "faq_json") or "[]")
         return raw if isinstance(raw, list) else []
     except Exception:
         return []
-
 
 @router.get("/faq")
 def get_faq(lang: str = "ru", user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -152,7 +140,6 @@ def get_faq(lang: str = "ru", user: User = Depends(get_current_user), db: Sessio
             "a": a.get(lang, "") if isinstance(a, dict) else (a or ""),
         })
     return {"lang": lang, "items": items}
-
 
 @router.put("/faq")
 def put_faq(p: dict = Body(...), admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
@@ -171,8 +158,6 @@ def put_faq(p: dict = Body(...), admin: User = Depends(require_superadmin), db: 
     app_settings.set_setting(db, "faq_json", json.dumps(multilang, ensure_ascii=False))
     return get_faq(lang=lang, user=admin, db=db)
 
-
-# ─────────────────────── инструкция: блок «Важно» (список строк, мультиязычный) ───────────────────────
 def _load_important(db: Session) -> list:
     try:
         raw = json.loads(app_settings.get_setting(db, "instruction_important_json") or "[]")
@@ -180,14 +165,12 @@ def _load_important(db: Session) -> list:
     except Exception:
         return []
 
-
 @router.get("/instruction-important")
 def get_important(lang: str = "ru", user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if lang not in LANGS:
         lang = "ru"
     items = [(it.get(lang, "") if isinstance(it, dict) else (it or "")) for it in _load_important(db)]
     return {"lang": lang, "items": items}
-
 
 @router.put("/instruction-important")
 def put_important(p: dict = Body(...), admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
@@ -200,7 +183,6 @@ def put_important(p: dict = Body(...), admin: User = Depends(require_superadmin)
 
     def _full(ml):
         return isinstance(ml, dict) and all(k in ml for k in LANGS)
-    # переводим только изменённые пункты (по позиции)
     changed = [cur for i, cur in enumerate(incoming)
                if not (i < len(existing) and _full(existing[i]) and cur == existing[i].get(lang, "").strip())]
     cache = translate.to_trilang_bulk(changed, lang)
@@ -214,14 +196,10 @@ def put_important(p: dict = Body(...), admin: User = Depends(require_superadmin)
     app_settings.set_setting(db, "instruction_important_json", json.dumps(out, ensure_ascii=False))
     return get_important(lang=lang, user=admin, db=db)
 
-
-# ─────────────────────────── обучение: уроки (мультиязычные) ───────────────────────────
 LESSON_SETTING = {"quick": "training_lessons_quick_json", "full": "training_lessons_json", "instruction": "instruction_steps_json"}
-
 
 def _lesson_pick(v, lang: str) -> str:
     return v.get(lang, "") if isinstance(v, dict) else (v or "")
-
 
 def _image_pick(img, lang: str) -> str:
     """Картинка для языка: своя для lang, иначе RU, иначе любая непустая."""
@@ -229,9 +207,7 @@ def _image_pick(img, lang: str) -> str:
         return img.get(lang) or img.get("ru") or next((v for v in img.values() if v), "")
     return img or ""
 
-
 CALLOUT_KINDS = ("tip", "important", "forbidden", "example")
-
 
 def lesson_resolve(ml: dict, lang: str) -> dict:
     """Мультиязычный урок → урок на одном языке (для редактирования / отдачи)."""
@@ -241,7 +217,6 @@ def lesson_resolve(ml: dict, lang: str) -> dict:
                      "langs": c.get("langs") if isinstance(c.get("langs"), list) else list(LANGS)}
                     for c in callouts_raw]
     else:
-        # обратная совместимость: старое поле note → блок «Совет»
         note = _lesson_pick(ml.get("note"), lang)
         callouts = [{"kind": "tip", "text": note, "langs": list(LANGS)}] if note else []
     gallery = [{"image": _image_pick(g.get("image"), lang), "caption": _lesson_pick(g.get("caption"), lang)}
@@ -250,14 +225,13 @@ def lesson_resolve(ml: dict, lang: str) -> dict:
         "type": ml.get("type", "text"),
         "url": ml.get("url", ""),
         "image": _image_pick(ml.get("image"), lang),
-        "video": _image_pick(ml.get("video"), lang),  # видео тоже по языкам
+        "video": _image_pick(ml.get("video"), lang),
         "title": _lesson_pick(ml.get("title"), lang),
         "body": _lesson_pick(ml.get("body"), lang),
         "items": [_lesson_pick(it, lang) for it in (ml.get("items") or [])],
         "callouts": callouts,
         "gallery": gallery,
     }
-
 
 def _lesson_translate(lesson: dict, lang: str, cache: dict | None = None) -> dict:
     """Урок на языке lang → мультиязычный (переводим текстовые поля).
@@ -284,14 +258,12 @@ def _lesson_translate(lesson: dict, lang: str, cache: dict | None = None) -> dic
         "items": [tri(it) for it in items],
     }
 
-
 def _load_lessons(db: Session, kind: str) -> list:
     try:
         raw = json.loads(app_settings.get_setting(db, LESSON_SETTING[kind]) or "[]")
         return raw if isinstance(raw, list) else []
     except Exception:
         return []
-
 
 @router.get("/training-lessons")
 def get_training_lessons(kind: str = "quick", lang: str = "ru", user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -300,7 +272,6 @@ def get_training_lessons(kind: str = "quick", lang: str = "ru", user: User = Dep
     if lang not in LANGS:
         lang = "ru"
     return {"kind": kind, "lang": lang, "lessons": [lesson_resolve(l, lang) for l in _load_lessons(db, kind)]}
-
 
 @router.put("/training-lessons")
 def put_training_lessons(p: dict = Body(...), admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
@@ -314,10 +285,10 @@ def put_training_lessons(p: dict = Body(...), admin: User = Depends(require_supe
     lessons = p.get("lessons") or []
     existing = _load_lessons(db, kind)
 
-    def _is_full(ml):  # уже мультиязычный словарь со всеми языками?
+    def _is_full(ml):
         return isinstance(ml, dict) and all(k in ml for k in LANGS)
 
-    def _lang_val(ml):  # значение поля на языке ввода
+    def _lang_val(ml):
         return (ml.get(lang, "") if isinstance(ml, dict) else (ml or "")).strip()
 
     def _ex(idx, field):
@@ -327,7 +298,6 @@ def put_training_lessons(p: dict = Body(...), admin: User = Depends(require_supe
         c = existing[idx].get("callouts") if idx < len(existing) else None
         return c if isinstance(c, list) else []
 
-    # 1) собрать ТОЛЬКО изменённые тексты (по языку ввода) — их и переведём
     changed = []
     for idx, l in enumerate(lessons):
         for field in ("title", "body"):
@@ -386,14 +356,12 @@ def put_training_lessons(p: dict = Body(...), admin: User = Depends(require_supe
                 for k, c in enumerate(callouts)
             ],
         }
-        # картинки/видео — по языкам: сохраняем версии других языков из прошлой записи
         for field in ("image", "video"):
             new_val = (l.get(field) or "").strip()
             old = _ex(idx, field)
             val_ml = dict(old) if isinstance(old, dict) else ({"ru": old, "en": old, "ua": old} if old else {})
             val_ml[lang] = new_val
             ml[field] = val_ml
-        # галерея — фото по языкам (по индексу) + перевод подписи
         ex_gal = existing[idx].get("gallery") if idx < len(existing) else None
         ex_gal = ex_gal if isinstance(ex_gal, list) else []
         gallery = [g for g in (l.get("gallery") or []) if (g.get("image") or "").strip() or (g.get("caption") or "").strip()]
@@ -410,8 +378,6 @@ def put_training_lessons(p: dict = Body(...), admin: User = Depends(require_supe
     app_settings.set_setting(db, LESSON_SETTING[kind], json.dumps(multilang, ensure_ascii=False))
     return get_training_lessons(kind=kind, lang=lang, user=admin, db=db)
 
-
-# ─────────────────────────── обучение: картинки + прогресс ───────────────────────────
 @router.post("/lesson-image")
 async def upload_lesson_image(image: UploadFile = File(...), admin: User = Depends(require_superadmin)):
     """Загрузка картинки шага обучения. Возвращает относительный путь и публичный URL."""
@@ -423,7 +389,6 @@ async def upload_lesson_image(image: UploadFile = File(...), admin: User = Depen
     except storage.UploadError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"path": rel, "url": f"/api/public/lesson-image/{rel}"}
-
 
 @router.post("/lesson-video")
 async def upload_lesson_video(video: UploadFile = File(...), admin: User = Depends(require_superadmin)):
@@ -437,7 +402,6 @@ async def upload_lesson_video(video: UploadFile = File(...), admin: User = Depen
         raise HTTPException(status_code=400, detail=str(e))
     return {"path": rel, "url": f"/api/public/media-video/{rel}"}
 
-
 @router.post("/app-file")
 async def upload_app_file(file: UploadFile = File(...), admin: User = Depends(require_superadmin)):
     """Загрузка APK-файла приложения. Возвращает относительный путь."""
@@ -449,7 +413,6 @@ async def upload_app_file(file: UploadFile = File(...), admin: User = Depends(re
     except storage.UploadError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"path": rel, "url": f"/api/public/app-file/{rel}"}
-
 
 @router.get("/training-progress")
 def training_progress_list(user: User = Depends(get_current_user), db: Session = Depends(get_db)):

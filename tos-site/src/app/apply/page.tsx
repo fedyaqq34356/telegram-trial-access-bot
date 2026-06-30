@@ -26,7 +26,7 @@ export default function ApplyPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [showExample, setShowExample] = useState(false);
-  const [website, setWebsite] = useState(""); // honeypot
+  const [website, setWebsite] = useState(""); 
 
   const up = (k: keyof FormState, v: any) => setF((s) => ({ ...s, [k]: v }));
   const TOTAL = 5;
@@ -113,14 +113,14 @@ export default function ApplyPage() {
         <h1 className="text-2xl sm:text-3xl font-extrabold text-center h-grad">{titles[step - 1]}</h1>
         <p className="text-center text-slate-500 text-sm mt-1">{a.step} {step} {a.of} {TOTAL}</p>
 
-        {/* progress */}
+        {}
         <div className="flex gap-1.5 mt-4 mb-6">
           {Array.from({ length: TOTAL }).map((_, i) => (
             <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i < step ? "bg-gradient-to-r from-neon-500 to-brand-500" : "bg-white/10"}`} />
           ))}
         </div>
 
-        {/* honeypot (скрыт) */}
+        {}
         <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off"
                className="absolute -left-[9999px] w-0 h-0" aria-hidden />
 
@@ -188,7 +188,7 @@ export default function ApplyPage() {
               <div className="flex flex-wrap justify-center gap-3">
                 {f.photos.map((_, i) => (
                   <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-line">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {}
                     {f.previews[i] && <img src={f.previews[i]} alt="" className="w-full h-full object-cover" />}
                     <button onClick={() => removePhoto(i)} className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 grid place-items-center text-white"><IconClose className="w-3.5 h-3.5" /></button>
                   </div>

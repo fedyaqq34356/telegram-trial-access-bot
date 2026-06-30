@@ -10,7 +10,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# backend/  (parents[2] = app/services/storage.py -> app -> backend)
 BASE_DIR = Path(__file__).resolve().parents[2]
 PRIVATE_ROOT = BASE_DIR / "private_uploads"
 APPLICATIONS_DIR = PRIVATE_ROOT / "applications"
@@ -20,20 +19,17 @@ VIDEOS_DIR = PRIVATE_ROOT / "videos"
 APPS_DIR = PRIVATE_ROOT / "apps"
 
 ALLOWED_VIDEO_EXT = {".mp4", ".webm", ".mov", ".m4v", ".ogg"}
-MAX_VIDEO_BYTES = 300 * 1024 * 1024   # 300 МБ на видео
-MAX_APK_BYTES = 500 * 1024 * 1024     # 500 МБ на APK
+MAX_VIDEO_BYTES = 300 * 1024 * 1024
+MAX_APK_BYTES = 500 * 1024 * 1024
 
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
-# что Telegram точно показывает как фото (heic не шлём в ТГ)
 TELEGRAM_SAFE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
-MAX_BYTES = 8 * 1024 * 1024   # 8 МБ на файл
+MAX_BYTES = 8 * 1024 * 1024
 MAX_FILES = 3
 MIN_FILES = 2
 
-
 class UploadError(Exception):
     pass
-
 
 def _ext_of(filename: str, content_type: str | None) -> str:
     ext = Path(filename or "").suffix.lower()
@@ -44,7 +40,6 @@ def _ext_of(filename: str, content_type: str | None) -> str:
     if guessed in ALLOWED_EXT:
         return ".jpg" if guessed == ".jpeg" else guessed
     raise UploadError("Недопустимый формат файла. Разрешены: JPG, PNG, WebP, HEIC.")
-
 
 def save_photos(subdir: Path, items: list[tuple[str, str | None, bytes]]) -> list[str]:
     """items: список (filename, content_type, data). Возвращает относительные пути от PRIVATE_ROOT."""
@@ -62,7 +57,6 @@ def save_photos(subdir: Path, items: list[tuple[str, str | None, bytes]]) -> lis
         saved.append(str(path.relative_to(PRIVATE_ROOT)))
     return saved
 
-
 def save_application_photos(app_id: int, items: list[tuple[str, str | None, bytes]]) -> list[str]:
     if len(items) < MIN_FILES:
         raise UploadError("Загрузите минимум 2 фотографии.")
@@ -70,13 +64,11 @@ def save_application_photos(app_id: int, items: list[tuple[str, str | None, byte
         raise UploadError("Можно загрузить не более 3 фотографий.")
     return save_photos(APPLICATIONS_DIR / str(app_id), items)
 
-
 def save_testimonial_screenshot(item: tuple[str, str | None, bytes]) -> str:
     paths = save_photos(TESTIMONIALS_DIR, [item])
     if not paths:
         raise UploadError("Пустой файл.")
     return paths[0]
-
 
 def save_lesson_image(item: tuple[str, str | None, bytes]) -> str:
     """Картинка к шагу обучения (публичная)."""
@@ -84,7 +76,6 @@ def save_lesson_image(item: tuple[str, str | None, bytes]) -> str:
     if not paths:
         raise UploadError("Пустой файл.")
     return paths[0]
-
 
 def save_video(item: tuple[str, str | None, bytes]) -> str:
     """Видео (обучение / пример в заявке). Публичное, отдаётся напрямую."""
@@ -105,7 +96,6 @@ def save_video(item: tuple[str, str | None, bytes]) -> str:
     path.write_bytes(data)
     return str(path.relative_to(PRIVATE_ROOT))
 
-
 def save_app_file(item: tuple[str, str | None, bytes]) -> str:
     """APK-файл приложения для скачивания. Публичный."""
     filename, content_type, data = item
@@ -122,7 +112,6 @@ def save_app_file(item: tuple[str, str | None, bytes]) -> str:
     path.write_bytes(data)
     return str(path.relative_to(PRIVATE_ROOT))
 
-
 def abs_path(rel: str) -> Path:
     """Преобразует относительный путь в абсолютный, защищаясь от выхода за PRIVATE_ROOT."""
     p = (PRIVATE_ROOT / rel).resolve()
@@ -130,10 +119,8 @@ def abs_path(rel: str) -> Path:
         raise UploadError("Недопустимый путь.")
     return p
 
-
 def content_type_of(rel: str) -> str:
     return mimetypes.guess_type(rel)[0] or "application/octet-stream"
-
 
 def is_telegram_safe(rel: str) -> bool:
     return Path(rel).suffix.lower() in TELEGRAM_SAFE_EXT

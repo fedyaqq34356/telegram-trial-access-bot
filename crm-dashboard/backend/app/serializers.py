@@ -5,7 +5,6 @@ from .models import Agency, Host, User
 from .services import app_settings
 from .services.levels import enrich_host
 
-
 def host_to_dict(host: Host, agency_name: str) -> dict:
     return {
         "id": host.id,
@@ -36,7 +35,6 @@ def host_to_dict(host: Host, agency_name: str) -> dict:
         "updated_at": host.updated_at.isoformat() if host.updated_at else None,
     }
 
-
 def enrich_hosts(db: Session, hosts: list[Host], agency_names: dict[int, str]) -> list[dict]:
     grade_config = app_settings.get_grade_config(db)
     coins_per_usd = app_settings.get_coins_per_usd(db)
@@ -47,17 +45,14 @@ def enrich_hosts(db: Session, hosts: list[Host], agency_names: dict[int, str]) -
         out.append(enrich_host(base, grade_config, coins_per_usd, warn))
     return out
 
-
 def show_blocked_enabled(db: Session) -> bool:
     return app_settings.get_setting(db, "show_blocked").strip().lower() in ("1", "true", "yes", "on")
-
 
 def filter_blocked(db: Session, items: list[dict]) -> list[dict]:
     """Убирает заблокированных, если в настройках не включён их показ."""
     if show_blocked_enabled(db):
         return items
     return [h for h in items if not h.get("is_blocked")]
-
 
 def agency_names_map(db: Session) -> dict[int, str]:
     return {a.id: a.name for a in db.query(Agency).all()}

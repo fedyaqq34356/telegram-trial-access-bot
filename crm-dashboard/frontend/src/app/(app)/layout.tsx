@@ -40,7 +40,7 @@ function NotificationsBell() {
   function toggle() {
     const willOpen = !open;
     setOpen(willOpen);
-    if (willOpen) markAllSeen(); // открыли колокольчик — помечаем прочитанными
+    if (willOpen) markAllSeen(); 
   }
 
   useEffect(() => {

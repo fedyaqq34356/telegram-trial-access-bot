@@ -8,11 +8,10 @@ from ..serializers import agency_names_map, enrich_hosts, filter_blocked
 
 router = APIRouter(prefix="/risk", tags=["risk"])
 
-
 @router.get("")
 def list_risk(
     agency_id: int | None = None,
-    status: str = "all",  # all | warning | danger
+    status: str = "all",
     level: str | None = None,
     search: str | None = None,
     page: int = Query(1, ge=1),
@@ -28,7 +27,6 @@ def list_risk(
     names = agency_names_map(db)
     items = filter_blocked(db, enrich_hosts(db, hosts, names))
 
-    # только зона риска: warning + danger
     items = [h for h in items if h["risk_status"] in ("warning", "danger")]
 
     if status in ("warning", "danger"):
@@ -40,7 +38,6 @@ def list_risk(
         q = search.strip().lower()
         items = [h for h in items if q in str(h["display_account_id"]).lower() or q in h["nickname"].lower()]
 
-    # danger сначала, потом по превышению
     items.sort(key=lambda h: (0 if h["risk_status"] == "danger" else 1, -(h["risk_excess"] or -99)))
 
     total = len(items)

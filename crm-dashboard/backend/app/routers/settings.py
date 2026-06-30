@@ -11,19 +11,16 @@ from ..services import app_settings, scheduler
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
-
 @router.get("")
 def get_settings(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     data = app_settings.get_all_settings(db)
     grade_config = app_settings.get_grade_config(db)
     return {**data, "grade_config": grade_config}
 
-
 @router.put("")
 def update_settings(payload: SettingsUpdate, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     for key, value in payload.values.items():
         if key == "grade_config":
-            # валидируем JSON
             try:
                 json.loads(value)
             except Exception:

@@ -18,14 +18,14 @@ export default function InstructionPage() {
 
   return (
     <Section className="!pt-12">
-      {/* hero */}
+      {}
       <div className="text-center max-w-3xl mx-auto mb-8">
         <span className="eyebrow">{ins.eyebrow}</span>
         <h1 className="mt-3 text-3xl sm:text-5xl font-black leading-[1.15] pb-1 h-grad">{ins.title}</h1>
         <p className="mt-3 text-slate-300 sm:text-lg">{ins.lead}</p>
       </div>
 
-      {/* шаги */}
+      {}
       {steps.length === 0 ? (
         <div className="text-center text-slate-500">{ins.empty}</div>
       ) : (
@@ -42,7 +42,7 @@ export default function InstructionPage() {
                 </div>
                 {s.body && <p className="text-sm text-slate-300 whitespace-pre-line">{s.body}</p>}
                 {s.image && (
-                  /* eslint-disable-next-line @next/next/no-img-element */
+                  
                   <img src={s.image} alt="" className="mt-3 mx-auto w-auto max-w-full max-h-80 rounded-xl border border-line" />
                 )}
                 <Gallery items={s.gallery} className="mt-3" />
@@ -66,7 +66,7 @@ export default function InstructionPage() {
         </div>
       )}
 
-      {/* важно */}
+      {}
       {important.length > 0 && (
         <Reveal>
           <div className="mt-8 rounded-xl3 border border-neon-500/30 bg-gradient-to-br from-brand-700/20 to-neon-600/10 p-6">
@@ -85,7 +85,7 @@ export default function InstructionPage() {
         </Reveal>
       )}
 
-      {/* полезные ссылки */}
+      {}
       <div className="mt-8 text-center">
         <h3 className="font-extrabold text-lg mb-4">✦ {ins.linksTitle} ✦</h3>
         <div className="grid sm:grid-cols-3 gap-3 max-w-4xl mx-auto">

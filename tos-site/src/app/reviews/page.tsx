@@ -12,7 +12,7 @@ export default function ReviewsPage() {
   const seed = REVIEWS[lang];
   const admin = content?.reviews ?? [];
 
-  // отзывы из админки → формат карточки ReviewCard (на текущем языке)
+  
   const adminCards: SeedReview[] = admin.map((r) => {
     const pick = (m: Record<string, string>) => m?.[lang] || m?.ru || "";
     const messages: ChatMsg[] = [];

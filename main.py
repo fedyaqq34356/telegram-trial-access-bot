@@ -49,7 +49,6 @@ async def main():
     else:
         logging.info(f"Загружено {len(admin_ids)} администратор(ов)")
 
-    # Восстанавливаем сессии агентств из базы данных
     from handlers.check_handlers import restore_sessions
     agencies = db.get_all_agencies()
     restore_sessions(db, agencies)

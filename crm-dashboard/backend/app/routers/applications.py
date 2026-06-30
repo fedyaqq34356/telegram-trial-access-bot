@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/applications", tags=["applications"])
 internal_router = APIRouter(prefix="/internal", tags=["internal"])
 
-
 def _apply_status_change(db: Session, app: Application, new_status: str, actor: str, note: str = "") -> None:
     if new_status not in APPLICATION_STATUSES:
         raise HTTPException(status_code=400, detail="Недопустимый статус")
@@ -31,7 +30,6 @@ def _apply_status_change(db: Session, app: Application, new_status: str, actor: 
         application_id=app.id, old_status=app.status, new_status=new_status, actor=actor, note=note,
     ))
     app.status = new_status
-
 
 @router.get("")
 def list_applications(
@@ -78,12 +76,10 @@ def list_applications(
         "statuses": [{"value": s, "label": status_label(s)} for s in APPLICATION_STATUSES],
     }
 
-
 @router.get("/new-count")
 def new_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     n = db.query(func.count(Application.id)).filter(Application.status == "new").scalar()
     return {"count": int(n or 0)}
-
 
 @router.get("/{app_id}")
 def get_application(app_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -91,7 +87,6 @@ def get_application(app_id: int, user: User = Depends(get_current_user), db: Ses
     if not app:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     return serialize_application(app, with_events=True)
-
 
 @router.patch("/{app_id}")
 def update_application(
@@ -112,7 +107,6 @@ def update_application(
     db.refresh(app)
     return serialize_application(app, with_events=True)
 
-
 @router.get("/{app_id}/photo/{idx}")
 def application_photo(
     app_id: int, idx: int,
@@ -132,12 +126,9 @@ def application_photo(
         raise HTTPException(status_code=404, detail="Фото не найдено")
     return FileResponse(path, media_type=storage.content_type_of(paths[idx]))
 
-
-# ── internal: смена статуса из Telegram-бота ──
 def require_internal(x_internal_token: str = Header(default="")):
     if not settings.internal_api_token or x_internal_token != settings.internal_api_token:
         raise HTTPException(status_code=403, detail="forbidden")
-
 
 @internal_router.get("/applications/{app_id}")
 def internal_get(app_id: int, _: None = Depends(require_internal), db: Session = Depends(get_db)):
@@ -152,7 +143,6 @@ def internal_get(app_id: int, _: None = Depends(require_internal), db: Session =
         "status": app.status,
         "status_label": status_label(app.status),
     }
-
 
 @internal_router.patch("/applications/{app_id}/status")
 def internal_set_status(

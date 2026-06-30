@@ -7,7 +7,6 @@ from ..models import ActionLog, SecurityLog, User
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 
-
 @router.get("/actions")
 def action_logs(
     action_type: str | None = None,
@@ -34,7 +33,6 @@ def action_logs(
         "total": total, "page": page, "limit": limit,
     }
 
-
 @router.delete("/actions")
 def clear_action_logs(
     admin: User = Depends(require_superadmin),
@@ -44,7 +42,6 @@ def clear_action_logs(
     deleted = db.query(ActionLog).delete()
     db.commit()
     return {"deleted": deleted}
-
 
 @router.get("/security")
 def security_logs(

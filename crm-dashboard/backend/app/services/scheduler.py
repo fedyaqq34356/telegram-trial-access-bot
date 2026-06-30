@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 _scheduler: BackgroundScheduler | None = None
 
-
 def _job():
     db = SessionLocal()
     try:
@@ -21,7 +20,6 @@ def _job():
         logger.error(f"Scheduled sync error: {e}")
     finally:
         db.close()
-
 
 def start_scheduler():
     global _scheduler
@@ -43,14 +41,12 @@ def start_scheduler():
     logger.info(f"Scheduler started, interval={interval}min")
     return _scheduler
 
-
 def reschedule(interval_minutes: int):
     if _scheduler is None:
         return
     interval_minutes = max(1, interval_minutes)
     _scheduler.reschedule_job("sync_all", trigger="interval", minutes=interval_minutes)
     logger.info(f"Scheduler rescheduled to {interval_minutes}min")
-
 
 def shutdown_scheduler():
     global _scheduler

@@ -14,7 +14,7 @@ const GRADE_BAR: Record<string, string> = {
 
 export default function DashboardPage() {
   const { selected, agencies } = useAgencies();
-  // когда выбраны ВСЕ агентства (и их больше одного) — родительный падеж множественного числа
+  
   const viewingAll = selected === null && agencies.length > 1;
   const agWord = viewingAll ? "агентств" : "агентства";
   const { data, isLoading } = useSWR<any>(`/dashboard/stats${qs({ agency_id: selected ?? undefined })}`, fetcher, {

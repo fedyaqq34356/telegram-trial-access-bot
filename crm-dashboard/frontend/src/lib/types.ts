@@ -38,12 +38,12 @@ export interface Host {
   monthly_income_usd: number;
   last_day_income: number;
   last_day_income_usd: number;
-  // чистый заработок девушки (после вычета % агентства)
+  
   month_income_host: number;
   month_income_host_usd: number;
   last_day_income_host: number;
   last_day_income_host_usd: number;
-  // доход агентства из текущего %
+  
   month_income_agency: number;
   month_income_agency_usd: number;
   last_day_income_agency: number;

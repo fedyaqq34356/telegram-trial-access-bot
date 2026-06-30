@@ -69,7 +69,6 @@ async def check_presence(message: Message, db: Database, config: Config):
     await message.answer("Начинаю проверку...")
     
     for user in users:
-        # Проверяем присутствие в рабочем чате
         try:
             work_member = await message.bot.get_chat_member(
                 config.work_chat_id, user["telegram_id"]
@@ -79,11 +78,9 @@ async def check_presence(message: Message, db: Database, config: Config):
                 ChatMemberStatus.KICKED,
             )
         except Exception as e:
-            # Пользователь не найден в чате
             print(f"Ошибка при проверке пользователя {user['telegram_id']} в рабочем чате: {e}")
             in_work = False
         
-        # Проверяем присутствие в обучающей группе
         try:
             study_member = await message.bot.get_chat_member(
                 config.study_group_id, user["telegram_id"]
@@ -93,14 +90,11 @@ async def check_presence(message: Message, db: Database, config: Config):
                 ChatMemberStatus.KICKED,
             )
         except Exception as e:
-            # Пользователь не найден в чате
             print(f"Ошибка при проверке пользователя {user['telegram_id']} в обучающей группе: {e}")
             in_study = False
         
-        # Обновляем статус в базе данных
         db.update_presence(user["telegram_id"], in_work, in_study)
         
-        # Если пользователь в обучающей группе, но не в рабочем чате - удаляем
         if in_study and not in_work:
             try:
                 await message.bot.ban_chat_member(
@@ -125,7 +119,6 @@ async def check_presence(message: Message, db: Database, config: Config):
                     f"Ошибка при удалении {user['telegram_id']}: {e}"
                 )
         
-        # Если пользователь вышел из одного или обоих чатов - сообщаем
         elif not in_work or not in_study:
             left_from = []
             if not in_work:
@@ -148,7 +141,6 @@ async def check_presence(message: Message, db: Database, config: Config):
         await message.answer("Проверка завершена. Все пользователи на месте.")
     else:
         await message.answer("Проверка завершена")
-
 
 @router.message(F.text == "История проверок")
 async def show_check_history(message: Message, db: Database):
@@ -177,7 +169,6 @@ async def show_check_history(message: Message, db: Database):
     else:
         await message.answer(text)
 
-
 @router.message(F.text == "Уведомления")
 async def notifications_menu(message: Message, db: Database):
     if not db.is_admin(message.from_user.id):
@@ -205,7 +196,6 @@ async def notifications_menu(message: Message, db: Database):
         f"аккаунту — не чаще раза в 24 часа.",
         reply_markup=kb
     )
-
 
 @router.message(F.text == "Агентства")
 async def show_agencies(message: Message, db: Database):

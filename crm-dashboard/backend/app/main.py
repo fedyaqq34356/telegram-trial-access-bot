@@ -28,7 +28,6 @@ from .services import app_settings, scheduler
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("crm")
 
-
 def _ensure_columns():
     """Лёгкая миграция: create_all не добавляет НОВЫЕ колонки в уже существующие таблицы.
     Досоздаём недостающие через ALTER TABLE (идемпотентно)."""
@@ -48,7 +47,6 @@ def _ensure_columns():
                 if name not in existing:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
                     logger.info(f"Миграция: добавлена колонка {table}.{name}")
-
 
 def init_db():
     Base.metadata.create_all(bind=engine)
@@ -70,7 +68,6 @@ def init_db():
     finally:
         db.close()
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -78,7 +75,6 @@ async def lifespan(app: FastAPI):
     logger.info("CRM backend запущен")
     yield
     scheduler.shutdown_scheduler()
-
 
 app = FastAPI(title="Tos Agency CRM", version="1.0.0", lifespan=lifespan)
 
@@ -94,9 +90,7 @@ for r in (auth, agencies, hosts, dashboard, risk, split, users, logs, settings_r
           public, applications, site_content):
     app.include_router(r.router, prefix="/api")
 
-# internal-роут для Telegram-бота (смена статуса заявки по shared-token)
 app.include_router(applications.internal_router, prefix="/api")
-
 
 @app.get("/api/health")
 def health():

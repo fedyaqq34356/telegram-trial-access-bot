@@ -8,7 +8,7 @@ export function Gallery({ items, className = "" }: { items?: GalleryItem[]; clas
     <div className={`grid ${cols} gap-2 ${className}`}>
       {list.map((g, i) => (
         <div key={i} className="text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {}
           <img src={g.image} alt="" className="w-full rounded-lg border border-line object-contain bg-black/20" />
           {g.caption && <div className="text-[11px] text-slate-400 mt-1 leading-snug">{g.caption}</div>}
         </div>

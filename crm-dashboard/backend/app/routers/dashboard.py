@@ -13,7 +13,6 @@ from ..services.levels import GRADE_ORDER, income_range_label
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-
 def parse_online_minutes(s: str) -> int:
     if not s:
         return 0
@@ -30,10 +29,8 @@ def parse_online_minutes(s: str) -> int:
             total = int(digits[0])
     return total
 
-
 def fmt_online(total_minutes: int) -> dict:
     return {"hours": total_minutes // 60, "minutes": total_minutes % 60, "total_minutes": total_minutes}
-
 
 def _aggregate(items: list[dict], coins_per_usd: float) -> dict:
     y_income = sum(h["last_day_income"] for h in items)
@@ -62,7 +59,6 @@ def _aggregate(items: list[dict], coins_per_usd: float) -> dict:
         "at_risk_percent": round((at_risk + warnings) / total * 100, 1) if total else 0,
     }
 
-
 @router.get("/stats")
 def dashboard_stats(
     agency_id: int | None = None,
@@ -79,22 +75,20 @@ def dashboard_stats(
 
     cards = _aggregate(items, coins_per_usd)
 
-    # по агентствам
     per_agency = []
     agencies = db.query(Agency).filter(Agency.id.in_(scope)).order_by(Agency.name).all() if scope else []
     by_agency: dict[int, list] = {a.id: [] for a in agencies}
     for h in items:
         by_agency.setdefault(h["agency_id"], []).append(h)
 
-    # последние операции (вкл. «Все агентства» с agency_id=None) — чтобы найти последний сплит каждого
     recent_ops = db.query(SplitOperation).order_by(SplitOperation.id.desc()).limit(50).all()
 
     def last_split_for(agency_id: int, agency_name: str):
         """Последний сплит агентства, учитывая и запуски «Все агентства»."""
-        for op in recent_ops:  # от новых к старым
+        for op in recent_ops:
             if op.agency_id == agency_id:
                 return op.started_at, op.total_amount_coins
-            if op.agency_id is None:  # многоагентский запуск — берём долю из деталей
+            if op.agency_id is None:
                 try:
                     det = json.loads(op.details or "{}")
                 except Exception:
@@ -118,7 +112,6 @@ def dashboard_stats(
         })
         per_agency.append(agg)
 
-    # распределение уровней
     total = len(items)
     dist = []
     for grade in GRADE_ORDER:
@@ -130,7 +123,6 @@ def dashboard_stats(
             "percent": round(cnt / total * 100, 1) if total else 0,
         })
 
-    # последний split в области видимости
     last_q = db.query(SplitOperation)
     if agency_id is not None:
         last_q = last_q.filter(SplitOperation.agency_id == agency_id)

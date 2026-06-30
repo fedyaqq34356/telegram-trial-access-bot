@@ -81,7 +81,6 @@ class Database:
                     value TEXT
                 )
             ''')
-            # Таблица для сохранения сессий агентств
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS agency_sessions (
                     agency_name TEXT PRIMARY KEY,
@@ -102,8 +101,6 @@ class Database:
                               ag['aemail'], ag['apassword'], int(ag.get('tfa_required', False))))
                 except Exception:
                     pass
-
-    # ───────── Сессии агентств ─────────
 
     def save_agency_session(self, agency_name: str, phpsessid: str, acuid: str):
         """Сохраняет куки сессии агентства в базу."""
@@ -133,8 +130,6 @@ class Database:
                 'DELETE FROM agency_sessions WHERE agency_name = ?',
                 (agency_name,)
             )
-
-    # ───────── Users ─────────
 
     def add_user(self, telegram_id: int, name: str, username: Optional[str], trial_minutes: int):
         join_date = datetime.now()
@@ -199,8 +194,6 @@ class Database:
         with self._get_connection() as conn:
             conn.execute('DELETE FROM users WHERE telegram_id = ?', (telegram_id,))
 
-    # ───────── Admins ─────────
-
     def add_admin(self, telegram_id: int):
         with self._get_connection() as conn:
             conn.execute('INSERT OR IGNORE INTO admins (telegram_id) VALUES (?)', (telegram_id,))
@@ -219,8 +212,6 @@ class Database:
             cursor = conn.execute('SELECT telegram_id FROM admins WHERE telegram_id = ?', (telegram_id,))
             return cursor.fetchone() is not None
 
-    # ───────── Check history ─────────
-
     def save_check(self, tg_id, username, anchor_id, agency, down_rate,
                    real_down_rate, monthly_income, grade, has_risk, found):
         with self._get_connection() as conn:
@@ -238,8 +229,6 @@ class Database:
             cursor = conn.execute(
                 "SELECT * FROM check_history ORDER BY created_at DESC LIMIT ?", (limit,))
             return cursor.fetchall()
-
-    # ───────── Agencies ─────────
 
     def get_all_agencies(self):
         with self._get_connection() as conn:
@@ -268,8 +257,6 @@ class Database:
             raise ValueError(f"Invalid field: {field}")
         with self._get_connection() as conn:
             conn.execute(f'UPDATE agencies SET {field} = ? WHERE id = ?', (value, agency_id))
-
-    # ───────── Risk notifications ─────────
 
     def should_notify(self, anchor_id: str) -> bool:
         with self._get_connection() as conn:
@@ -305,8 +292,6 @@ class Database:
             return conn.execute(
                 "SELECT * FROM risk_notifications ORDER BY last_notified_at DESC LIMIT ?",
                 (limit,)).fetchall()
-
-    # ───────── Settings ─────────
 
     def get_setting(self, key: str, default: str = None) -> str:
         with self._get_connection() as conn:

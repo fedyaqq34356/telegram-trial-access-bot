@@ -32,10 +32,8 @@ GRADE_DESCRIPTIONS = {
     "D": "заработок менее 2 000 coins за последние 30 дней",
 }
 
-
 def is_valid_anchor_id(text: str) -> bool:
     return bool(re.match(r'^\d{7,15}$', text.strip()))
-
 
 def get_grade(monthly_income: int) -> str:
     monthly_income = int(monthly_income)
@@ -50,7 +48,6 @@ def get_grade(monthly_income: int) -> str:
     else:
         return "D"
 
-
 def check_risk(grade: str, down_rate: float, real_down_rate: float) -> list:
     risks = []
     if float(down_rate) >= 0.18:
@@ -59,7 +56,6 @@ def check_risk(grade: str, down_rate: float, real_down_rate: float) -> list:
     if limit is not None and float(real_down_rate) >= limit:
         risks.append(f"monthly_rate:{limit}")
     return risks
-
 
 def format_check_result(host: dict) -> str:
     grade = get_grade(host["MonthlyIncome"])
@@ -116,7 +112,6 @@ def format_check_result(host: dict) -> str:
 
     return "\n".join(lines)
 
-
 def _save_session(db: Database, agency_name: str, parser: HaloLiveParser):
     try:
         cookies = parser.get_cookies()
@@ -127,7 +122,6 @@ def _save_session(db: Database, agency_name: str, parser: HaloLiveParser):
             logger.info(f"Session saved for {agency_name}")
     except Exception as e:
         logger.error(f"Failed to save session for {agency_name}: {e}")
-
 
 def restore_sessions(db: Database, agencies: list):
     for agency in agencies:
@@ -153,7 +147,6 @@ def restore_sessions(db: Database, agencies: list):
         else:
             db.delete_agency_session(agency_name)
             logger.warning(f"Saved session for {agency_name} is expired, deleted")
-
 
 async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
                             user_tg_id: int, user_username, agency_name: str):
@@ -189,7 +182,6 @@ async def _process_and_send(bot: Bot, db: Database, parser, anchor_id: str,
         except Exception as e:
             logger.error(f"Cannot send not-found to user {user_tg_id}: {e}")
 
-
 async def _search_in_agency(agency_name: str, parser, anchor_id: str) -> dict | None:
     """Ищет девушку в одном агентстве. Возвращает host dict или None."""
     try:
@@ -200,7 +192,6 @@ async def _search_in_agency(agency_name: str, parser, anchor_id: str) -> dict | 
     except Exception as e:
         logger.error(f"find_by_id error in {agency_name}: {e}")
         return None
-
 
 @router.callback_query(F.data == "cancel_2fa")
 async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
@@ -233,7 +224,6 @@ async def cancel_2fa_callback(callback: CallbackQuery, bot: Bot, db: Database):
     await callback.message.edit_text(f"❌ Проверка отменена. Уведомлено пользователей: {1 + len(waitlist)}.")
     await callback.answer()
 
-
 @router.message(F.text == "Проверить ID")
 async def prompt_admin_check(message: Message, db: Database):
     if message.chat.type != "private":
@@ -243,7 +233,6 @@ async def prompt_admin_check(message: Message, db: Database):
     user_modes.pop(message.from_user.id, None)
     admin_check_mode.add(message.from_user.id)
     await message.answer("Введите ID для проверки:", reply_markup=get_cancel_kb())
-
 
 @router.message(F.text)
 async def handle_text_message(message: Message, bot: Bot, db: Database):
@@ -260,7 +249,6 @@ async def handle_text_message(message: Message, bot: Bot, db: Database):
         return
 
     await _handle_id_check(message, bot, db)
-
 
 async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
     user_id = message.from_user.id
@@ -305,7 +293,6 @@ async def _handle_tfa_response(message: Message, bot: Bot, db: Database):
     else:
         await message.answer("❌ Неверный код 2FA. Попробуйте ввести код ещё раз:")
 
-
 async def _handle_id_check(message: Message, bot: Bot, db: Database):
     user_id = message.from_user.id
     text = (message.text or "").strip()
@@ -326,7 +313,6 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
         await message.answer("⚠️ Нет подключённых агентств. Обратитесь к администратору.")
         return
 
-    # ── Шаг 1: параллельный поиск во всех агентствах с активными сессиями ──
     agencies_with_session = [a for a in agencies if a["name"] in active_sessions]
     agencies_without_session = [a for a in agencies if a["name"] not in active_sessions]
 
@@ -347,7 +333,6 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
                 agencies_without_session.append(agency)
                 continue
             if result is not None:
-                # Нашли девушку!
                 host = result
                 result_text = format_check_result(host)
                 grade = get_grade(host["MonthlyIncome"])
@@ -362,7 +347,6 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
                 await message.answer(result_text, parse_mode="HTML")
                 return
 
-    # ── Шаг 2: агентства без сессии — логинимся (2FA или обычный) ──
     had_timeout = False
     had_network_error = False
     tfa_requested = False
@@ -370,7 +354,6 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
     for agency in agencies_without_session:
         agency_name = agency["name"]
 
-        # Уже ждём 2FA для этого агентства
         if agency_name in pending_parsers:
             if agency_name not in tfa_waitlist:
                 tfa_waitlist[agency_name] = []
@@ -452,7 +435,6 @@ async def _handle_id_check(message: Message, bot: Bot, db: Database):
         elif login_result == "network":
             had_network_error = True
 
-    # ── Нигде не нашли ──
     db.save_check(
         tg_id=user_id, username=user_username, anchor_id=anchor_id,
         agency="", down_rate="", real_down_rate="",

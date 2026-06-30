@@ -5,22 +5,17 @@ from jose import JWTError, jwt
 
 from .config import settings
 
-
 def _to_bytes(password: str) -> bytes:
-    # bcrypt ограничен 72 байтами — обрезаем длинные пароли
     return password.encode("utf-8")[:72]
-
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(_to_bytes(password), bcrypt.gensalt()).decode("utf-8")
-
 
 def verify_password(plain: str, hashed: str) -> bool:
     try:
         return bcrypt.checkpw(_to_bytes(plain), hashed.encode("utf-8"))
     except Exception:
         return False
-
 
 def _create_token(data: dict, expires: timedelta, token_type: str) -> str:
     payload = data.copy()
@@ -30,7 +25,6 @@ def _create_token(data: dict, expires: timedelta, token_type: str) -> str:
     })
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
-
 def create_access_token(user_id: int) -> str:
     return _create_token(
         {"sub": str(user_id)},
@@ -38,14 +32,12 @@ def create_access_token(user_id: int) -> str:
         "access",
     )
 
-
 def create_refresh_token(user_id: int) -> str:
     return _create_token(
         {"sub": str(user_id)},
         timedelta(days=settings.refresh_token_days),
         "refresh",
     )
-
 
 def decode_token(token: str, expected_type: str = "access") -> int | None:
     try:

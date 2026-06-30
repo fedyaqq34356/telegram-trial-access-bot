@@ -40,7 +40,7 @@ async function raw(path: string, init: RequestInit, retry = true): Promise<Respo
   const token = getAccess();
   const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  // для FormData Content-Type выставляет браузер (boundary); JSON — ставим сами
+  
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
   const res = await fetch(`/api${path}`, { ...init, headers });
@@ -78,10 +78,10 @@ export const api = {
   patch: <T>(path: string, body?: any) =>
     raw(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }).then((r) => handle<T>(r)),
   del: <T>(path: string) => raw(path, { method: "DELETE" }).then((r) => handle<T>(r)),
-  // multipart (FormData): Content-Type выставит браузер
+  
   upload: <T>(path: string, form: FormData, method: "POST" | "PUT" = "POST") =>
     raw(path, { method, body: form }).then((r) => handle<T>(r)),
-  // приватный файл (фото заявки) → object URL (нужна авторизация в заголовке)
+  
   blob: (path: string) =>
     raw(path, { method: "GET" }).then(async (r) => {
       if (!r.ok) throw new ApiError(r.status, "Не удалось загрузить файл");

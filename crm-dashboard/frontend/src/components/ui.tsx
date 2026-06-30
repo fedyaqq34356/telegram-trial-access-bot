@@ -4,7 +4,6 @@ import { coins, usd } from "@/lib/format";
 import { api } from "@/lib/api";
 import { IconClose } from "./icons";
 
-// ── Grade badge ──
 const GRADE_STYLE: Record<string, string> = {
   S: "bg-brand-500/15 text-brand-300 border-brand-500/30",
   A: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
@@ -26,7 +25,6 @@ export function GradeBadge({ grade, range, limit }: { grade: string; range?: str
   );
 }
 
-// ── Risk badge ──
 const RISK: Record<string, { t: string; c: string }> = {
   safe: { t: "Безопасно", c: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
   warning: { t: "Предупреждение", c: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
@@ -54,7 +52,6 @@ export function StatusBadge({ status }: { status: string }) {
   </span>;
 }
 
-// ── Статус заявки (раздел «Заявки») ──
 const APP_STATUS: Record<string, string> = {
   new: "bg-sky-500/15 text-sky-300 border-sky-500/30",
   in_progress: "bg-violet-500/15 text-violet-300 border-violet-500/30",
@@ -70,7 +67,6 @@ export function AppStatusBadge({ status, label }: { status: string; label: strin
   return <span className={`chip border ${APP_STATUS[status] || "bg-white/5 text-slate-300 border-line"}`}>{label}</span>;
 }
 
-// ── Приватное изображение (фото заявки): грузим с авторизацией → object URL ──
 export function AuthImage({ path, alt, className = "" }: { path: string; alt?: string; className?: string }) {
   const [src, setSrc] = useState<string | null>(null);
   const [err, setErr] = useState(false);
@@ -83,11 +79,10 @@ export function AuthImage({ path, alt, className = "" }: { path: string; alt?: s
   }, [path]);
   if (err) return <div className={`grid place-items-center text-slate-600 text-xs bg-bg-soft ${className}`}>нет фото</div>;
   if (!src) return <div className={`bg-bg-soft animate-pulse ${className}`} />;
-  // eslint-disable-next-line @next/next/no-img-element
+  
   return <img src={src} alt={alt} className={className} />;
 }
 
-// ── coins + usd cell ──
 export function CoinsCell({ value, sub }: { value: number; sub?: number }) {
   return (
     <div className="leading-tight">
@@ -97,11 +92,10 @@ export function CoinsCell({ value, sub }: { value: number; sub?: number }) {
   );
 }
 
-// ── Avatar ──
 export function Avatar({ url, name, size = 38 }: { url?: string; name?: string; size?: number }) {
   const letter = (name || "?").charAt(0).toUpperCase();
   return url ? (
-    // eslint-disable-next-line @next/next/no-img-element
+    
     <img src={url} alt={name} width={size} height={size}
          className="rounded-full object-cover border border-line bg-bg-soft"
          style={{ width: size, height: size }}
@@ -114,7 +108,6 @@ export function Avatar({ url, name, size = 38 }: { url?: string; name?: string; 
   );
 }
 
-// ── Spinner ──
 export function Spinner({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg className={`spin ${className}`} viewBox="0 0 24 24" fill="none">
@@ -124,7 +117,6 @@ export function Spinner({ className = "w-5 h-5" }: { className?: string }) {
   );
 }
 
-// ── Modal ──
 export function Modal({ open, onClose, title, children, wide }: {
   open: boolean; onClose: () => void; title: string; children: React.ReactNode; wide?: boolean;
 }) {
@@ -143,7 +135,6 @@ export function Modal({ open, onClose, title, children, wide }: {
   );
 }
 
-// ── Pagination ──
 export function Pagination({ page, total, limit, onPage }: {
   page: number; total: number; limit: number; onPage: (p: number) => void;
 }) {

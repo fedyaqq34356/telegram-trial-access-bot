@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 SESSION_EXPIRED = "SESSION_EXPIRED"
 
-
 class HaloLiveParser:
     def __init__(self, url, account, password, aemail, apassword):
         self.url = self._normalize_url(url)
@@ -47,7 +46,6 @@ class HaloLiveParser:
     def _ref(self, path: str = "/anchor/anchorManage/waibu_anchorInfo?in_iframe=1") -> dict:
         return {**self.headers, "Referer": f"{self.url}{path}"}
 
-    # ── сессии ──
     def restore_from_cookies(self, phpsessid: str, acuid: str) -> bool:
         try:
             self.session.cookies.set("PHPSESSID", phpsessid, domain=self._domain)
@@ -118,7 +116,6 @@ class HaloLiveParser:
                     headers=self._ref("/admin/auth/login_view_load"),
                     timeout=15,
                 )
-                # тело verifyGoogleCode бывает пустым — проверяем успех реальным запросом данных
                 if not self._auth_probe():
                     return False
 
@@ -145,7 +142,6 @@ class HaloLiveParser:
         except Exception:
             return False
 
-    # ── данные ──
     def fetch_all_hosts(self) -> list | str:
         """Все девушки агентства. SESSION_EXPIRED если сессия истекла."""
         if not self.is_logged_in:
@@ -170,7 +166,6 @@ class HaloLiveParser:
             logger.error(f"fetch_all_hosts error: {e}")
             return SESSION_EXPIRED
 
-    # ── действия ──
     def set_ratio(self, display_account_id: str, ratio_value: int, agent_name: str) -> dict:
         """ratio_value — уже * 100 (20% = 2000). Возвращает {ok, code, msg}."""
         try:
@@ -245,7 +240,6 @@ class HaloLiveParser:
         except Exception as e:
             logger.warning(f"get_agent_balance failed: {e}")
             return {"coins": 0, "usd": 0.0}
-
 
 def normalize_host(raw: dict) -> dict:
     """Преобразует сырой ответ Halo Live в поля модели Host."""

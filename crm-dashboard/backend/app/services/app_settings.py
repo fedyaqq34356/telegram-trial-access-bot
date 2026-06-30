@@ -19,28 +19,26 @@ DEFAULTS = {
     "sync_interval_minutes": "15",
     "split_min_balance": "100",
     "split_skip_receive_rate": "0.4",
-    "warning_threshold": "0.9",  # доля лимита, после которой статус "предупреждение"
-    "show_blocked": "false",     # показывать заблокированных пользователей (по умолчанию выкл.)
+    "warning_threshold": "0.9",
+    "show_blocked": "false",
     "grade_config": json.dumps(DEFAULT_GRADE_CONFIG),
-    # ── публичный сайт tos-site (раздел CRM «Мой сайт») ──
-    "training_password": "",            # один пароль на всех для страницы «Обучение»
-    "training_lessons_json": "[]",      # полное обучение: [{type:video|text|checklist, title, body|url, items}]
-    "training_lessons_quick_json": "[]",  # быстрый старт (5–10 мин)
-    "apply_example_video_json": "{}",     # видео-пример для заявки: {ru,en,ua} → пути videos/<uuid>
-    "app_downloads_json": "{}",           # скачать приложение: {slot:{type:link|apk, url, file}}
-    "instruction_steps_json": "[]",       # инструкция по регистрации: шаги (как уроки, мультиязычные)
-    "instruction_important_json": "[]",   # инструкция: блок «Важно» — список [{ru,en,ua}]
+    "training_password": "",
+    "training_lessons_json": "[]",
+    "training_lessons_quick_json": "[]",
+    "apply_example_video_json": "{}",
+    "app_downloads_json": "{}",
+    "instruction_steps_json": "[]",
+    "instruction_important_json": "[]",
 
-    "notify_email": "",                 # email для уведомлений о заявках (опционально)
-    "owner_telegram_id": "",            # кому слать уведомления о заявках (приоритетнее config)
-    "social_telegram": "",              # ссылка/username Telegram агентства
+    "notify_email": "",
+    "owner_telegram_id": "",
+    "social_telegram": "",
     "social_instagram": "",
     "social_tiktok": "",
-    "social_whatsapp": "",              # номер телефона или ссылка WhatsApp
-    "faq_json": "[]",                   # [{q, a}] — переопределение/дополнение FAQ
-    "site_text_overrides_json": "{}",   # точечные переопределения текстов сайта по ключам
+    "social_whatsapp": "",
+    "faq_json": "[]",
+    "site_text_overrides_json": "{}",
 }
-
 
 def get_setting(db: Session, key: str, default: str | None = None) -> str:
     row = db.get(Setting, key)
@@ -49,7 +47,6 @@ def get_setting(db: Session, key: str, default: str | None = None) -> str:
     if default is not None:
         return default
     return DEFAULTS.get(key, "")
-
 
 def set_setting(db: Session, key: str, value: str) -> None:
     row = db.get(Setting, key)
@@ -60,13 +57,11 @@ def set_setting(db: Session, key: str, value: str) -> None:
         row.value = value
     db.commit()
 
-
 def get_all_settings(db: Session) -> dict:
     result = dict(DEFAULTS)
     for row in db.query(Setting).all():
         result[row.key] = row.value
     return result
-
 
 def get_grade_config(db: Session) -> dict:
     raw = get_setting(db, "grade_config")
@@ -78,13 +73,11 @@ def get_grade_config(db: Session) -> dict:
         pass
     return DEFAULT_GRADE_CONFIG
 
-
 def get_coins_per_usd(db: Session) -> float:
     try:
         return float(get_setting(db, "coins_per_usd")) or 20.0
     except Exception:
         return 20.0
-
 
 def ensure_defaults(db: Session) -> None:
     for key, value in DEFAULTS.items():

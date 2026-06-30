@@ -112,7 +112,6 @@ function BackBtn({ onBack }: { onBack: () => void }) {
   return <button onClick={onBack} className="btn-ghost !py-2 !px-3 text-sm mb-4"><IconArrow className="w-4 h-4 rotate-180" /> {t.training.back}</button>;
 }
 
-// ─────────── Проверка коэффициента ───────────
 function CheckView({ password, appId, onBack }: { password: string; appId: string; onBack: () => void }) {
   const { t } = useI18n();
   const [haloId, setHaloId] = useState(appId || "");
@@ -127,7 +126,7 @@ function CheckView({ password, appId, onBack }: { password: string; appId: strin
     finally { setBusy(false); }
   }
 
-  // как в боте: риск = превышение профиля (≥0.18) ИЛИ 30-дн. лимита уровня
+  
   const profileRisk = res ? !res.profile_ok : false;
   const monthlyRisk = res ? !res.monthly_ok : false;
   const hasRisk = profileRisk || monthlyRisk;
@@ -154,13 +153,13 @@ function CheckView({ password, appId, onBack }: { password: string; appId: strin
 
       {res && (
         <div className="grid lg:grid-cols-2 gap-4 mt-6">
-          {/* gauge */}
+          {}
           <div className="card p-6 flex flex-col items-center justify-center text-center">
             <Gauge value={res.real_down_rate} color={color} />
             <div className="font-bold mt-3">{t.training.coefLabel}</div>
             <span className={`chip mt-2 ${hasRisk ? "bg-rose-500/15 text-rose-300" : "bg-emerald-500/15 text-emerald-300"}`}>{statusLabel}</span>
           </div>
-          {/* детали — в порядке как в боте */}
+          {}
           <div className="card p-5">
             <DRow k={t.training.botId} v={res.id} />
             {res.ranking != null && <DRow k={t.training.dRank} v={`${res.ranking} ${t.training.rankUnit}`} />}
@@ -228,7 +227,7 @@ function DRow({ k, v, good }: { k: string; v: string; good?: boolean }) {
 function Gauge({ value, color }: { value: number; color: string }) {
   const stroke = color === "rose" ? "#fb7185" : color === "amber" ? "#fbbf24" : "#34d399";
   const r = 52, c = 2 * Math.PI * r;
-  // 0.0 → пусто, 0.40+ → полный круг (0.39 — крайний предел)
+  
   const frac = Math.max(0, Math.min(1, value / 0.4));
   return (
     <div className="relative w-36 h-36">
@@ -244,7 +243,6 @@ function Gauge({ value, color }: { value: number; color: string }) {
   );
 }
 
-// ─────────── Выбор обучения ───────────
 function ChooseTraining({ onBack, onPick }: { onBack: () => void; onPick: (s: "quick" | "full") => void }) {
   const { t } = useI18n();
   return (
@@ -279,10 +277,9 @@ function FormatCard({ icon, title, badge, desc, btn, onClick, recommended }: { i
   );
 }
 
-// ─────────── Пошаговый визард (быстрый старт И полное обучение) ───────────
 function LessonWizard({ steps, kind, password, haloId, onBack }: { steps: Lesson[]; kind: "quick" | "full"; password: string; haloId: string; onBack: () => void }) {
   const { t } = useI18n();
-  const [i, setI] = useState(-1); // -1 = вступительный экран
+  const [i, setI] = useState(-1); 
   const total = steps.length;
   const introTitle = kind === "quick" ? t.training.quickTitle : t.training.fullTitle;
   const duration = kind === "quick" ? t.training.quickDuration : t.training.fullBadge;
@@ -300,7 +297,7 @@ function LessonWizard({ steps, kind, password, haloId, onBack }: { steps: Lesson
     reportProgress(password, haloId, kind, done, total, done >= total);
   }
 
-  // вступительный экран
+  
   if (i < 0) return (
     <div className="max-w-xl mx-auto">
       <BackBtn onBack={onBack} />
@@ -358,7 +355,7 @@ function LessonWizard({ steps, kind, password, haloId, onBack }: { steps: Lesson
             <video controls preload="metadata" className="w-full rounded-xl border border-line bg-black max-h-[460px]" src={step.video} />
           )}
           {step.image && (
-            /* eslint-disable-next-line @next/next/no-img-element */
+            
             <img src={step.image} alt="" className="mx-auto w-auto max-w-full rounded-xl border border-line max-h-[460px]" />
           )}
           {!step.video && step.type === "video" && step.url && (

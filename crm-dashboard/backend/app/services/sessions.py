@@ -1,11 +1,10 @@
 """Хранилище активных Halo-сессий в памяти процесса."""
 from .halo_parser import HaloLiveParser
 
-
 class SessionManager:
     def __init__(self):
         self._active: dict[int, HaloLiveParser] = {}
-        self._pending: dict[int, HaloLiveParser] = {}  # ждут ввода 2FA
+        self._pending: dict[int, HaloLiveParser] = {}
 
     def get_active(self, agency_id: int) -> HaloLiveParser | None:
         return self._active.get(agency_id)
@@ -25,6 +24,5 @@ class SessionManager:
 
     def drop_pending(self, agency_id: int) -> None:
         self._pending.pop(agency_id, None)
-
 
 sessions = SessionManager()

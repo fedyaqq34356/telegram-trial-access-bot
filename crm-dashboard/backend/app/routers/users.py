@@ -9,7 +9,6 @@ from ..security import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-
 def _to_out(db: Session, user: User) -> UserOut:
     names = {a.id: a.name for a in db.query(Agency).all()}
     accesses = [
@@ -28,7 +27,6 @@ def _to_out(db: Session, user: User) -> UserOut:
         created_at=user.created_at, last_login=user.last_login, accesses=accesses,
     )
 
-
 def _apply_accesses(db: Session, user: User, accesses: list) -> None:
     db.query(UserAgencyAccess).filter(UserAgencyAccess.user_id == user.id).delete()
     db.flush()
@@ -40,11 +38,9 @@ def _apply_accesses(db: Session, user: User, accesses: list) -> None:
             can_view=item.can_view, can_change_ratio=item.can_change_ratio, can_split=item.can_split,
         ))
 
-
 @router.get("", response_model=list[UserOut])
 def list_users(admin: User = Depends(require_manage_users), db: Session = Depends(get_db)):
     return [_to_out(db, u) for u in db.query(User).order_by(User.id).all()]
-
 
 @router.post("", response_model=UserOut)
 def create_user(payload: UserCreate, admin: User = Depends(require_manage_users), db: Session = Depends(get_db)):
@@ -67,7 +63,6 @@ def create_user(payload: UserCreate, admin: User = Depends(require_manage_users)
     db.commit()
     db.refresh(user)
     return _to_out(db, user)
-
 
 @router.put("/{user_id}", response_model=UserOut)
 def update_user(user_id: int, payload: UserUpdate, admin: User = Depends(require_manage_users), db: Session = Depends(get_db)):
@@ -93,7 +88,6 @@ def update_user(user_id: int, payload: UserUpdate, admin: User = Depends(require
     db.commit()
     db.refresh(user)
     return _to_out(db, user)
-
 
 @router.delete("/{user_id}")
 def delete_user(user_id: int, admin: User = Depends(require_manage_users), db: Session = Depends(get_db)):

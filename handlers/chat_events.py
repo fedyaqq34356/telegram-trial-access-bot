@@ -24,7 +24,6 @@ async def handle_join_request(event: ChatJoinRequest, db: Database, config: Conf
                 username=user.username,
                 trial_minutes=config.trial_minutes
             )
-            # ВАЖНО: При добавлении пользователь только в рабочем чате, не в обучающей группе
             db.update_presence(user.id, in_work=True, in_study=False)
 
 @router.chat_member(ChatMemberUpdatedFilter(member_status_changed=MEMBER))
@@ -35,20 +34,17 @@ async def user_joined(event: ChatMemberUpdated, db: Database, config: Config):
     user_data = db.get_user(user.id)
     
     if not user_data:
-        # Создаем нового пользователя
         db.add_user(
             telegram_id=user.id,
             name=user.full_name,
             username=user.username,
             trial_minutes=config.trial_minutes
         )
-        # Устанавливаем флаг присутствия только для того чата, в который вступил
         if chat_id == config.work_chat_id:
             db.update_presence(user.id, in_work=True, in_study=False)
         elif chat_id == config.study_group_id:
             db.update_presence(user.id, in_work=False, in_study=True)
     else:
-        # Обновляем флаг присутствия для существующего пользователя
         if chat_id == config.work_chat_id:
             db.update_presence(user.id, in_work=True, in_study=user_data['in_study_group'])
         elif chat_id == config.study_group_id:
@@ -71,7 +67,6 @@ async def user_left(event: ChatMemberUpdated, db: Database, config: Config):
         else:
             return
         
-        # Отправляем уведомление администраторам с кнопками действий
         admins = db.get_all_admins()
         text = (f"Пользователь вышел из {left_from}\n\n"
                 f"{user_data['name']}\n"
@@ -86,15 +81,11 @@ async def user_left(event: ChatMemberUpdated, db: Database, config: Config):
             except:
                 continue
         
-        # ВАЖНОЕ ПРАВИЛО: Если пользователь покинул обучающую группу, 
-        # удаляем его из рабочего чата и из базы данных
         if chat_id == config.study_group_id:
             try:
-                # Удаляем из рабочего чата
                 await event.bot.ban_chat_member(config.work_chat_id, user_id)
                 await event.bot.unban_chat_member(config.work_chat_id, user_id)
             except Exception as e:
                 print(f"Ошибка при удалении из рабочего чата: {e}")
             
-            # Удаляем из базы данных
             db.remove_user(user_id)

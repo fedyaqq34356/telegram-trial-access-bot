@@ -22,11 +22,9 @@ from ..services.applications_service import build_notification_text
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/public", tags=["public"])
 
-# простой rate-limit: ip -> список timestamp'ов отправок
 _submits: dict[str, list[float]] = {}
-RATE_WINDOW = 3600.0   # окно, сек
-RATE_MAX = 5           # макс. заявок с одного IP за окно
-
+RATE_WINDOW = 3600.0
+RATE_MAX = 5
 
 def _rate_ok(ip: str) -> bool:
     now = time.time()
@@ -37,10 +35,8 @@ def _rate_ok(ip: str) -> bool:
     hist.append(now)
     return True
 
-
 def _truthy(v: str) -> bool:
     return str(v).strip().lower() in ("1", "true", "yes", "on", "да", "y")
-
 
 @router.post("/applications")
 async def submit_application(
@@ -54,11 +50,10 @@ async def submit_application(
     experience: str = Form("false"),
     experience_apps: str = Form(""),
     time_commitment: str = Form(""),
-    website: str = Form(""),       # honeypot — должно быть пустым
+    website: str = Form(""),
     photos: list[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
 ):
-    # honeypot: боты заполняют скрытое поле — тихо «принимаем», ничего не создавая
     if website.strip():
         return {"ok": True, "id": 0}
 
@@ -66,7 +61,6 @@ async def submit_application(
     if not _rate_ok(ip):
         raise HTTPException(status_code=429, detail="Слишком много заявок. Попробуйте позже.")
 
-    # валидация обязательных полей
     try:
         age_int = int(float(age))
     except Exception:
@@ -78,7 +72,6 @@ async def submit_application(
     if not (contact_telegram.strip() or contact_whatsapp.strip()):
         raise HTTPException(status_code=400, detail="Укажите Telegram или WhatsApp для связи.")
 
-    # читаем файлы (с проверкой количества/размера/формата делает storage)
     items = []
     for f in photos or []:
         data = await f.read()
@@ -113,7 +106,6 @@ async def submit_application(
     db.commit()
     db.refresh(app_row)
 
-    # уведомление владельцу в Telegram (в фоне)
     owner = app_settings.get_setting(db, "owner_telegram_id") or str(settings.owner_telegram_id or "")
     tg_safe = [str(storage.abs_path(p)) for p in rel_paths if storage.is_telegram_safe(p)]
     background.add_task(
@@ -128,7 +120,6 @@ async def submit_application(
     )
     return {"ok": True, "id": app_row.id}
 
-
 @router.get("/site-content")
 def site_content(db: Session = Depends(get_db)):
     """Публичный контент для сайта: соцсети, FAQ-оверрайды, видимые отзывы, текст-оверрайды."""
@@ -138,7 +129,6 @@ def site_content(db: Session = Depends(get_db)):
         except Exception:
             return json.loads(fallback)
 
-    # FAQ → мультиязычная карта {ru:[{q,a}], en:[...], ua:[...]}
     faq_raw = _json("faq_json", "[]")
     faq_ml = {"ru": [], "en": [], "ua": []}
     for it in (faq_raw if isinstance(faq_raw, list) else []):
@@ -149,7 +139,6 @@ def site_content(db: Session = Depends(get_db)):
             if qq or aa:
                 faq_ml[lang].append({"q": qq, "a": aa})
 
-    # Инструкция по регистрации (шаги + «Важно») — мультиязычно
     from .site_content import lesson_resolve
     instr_raw = _json("instruction_steps_json", "[]")
     instruction = {lang: [lesson_resolve(l, lang) for l in (instr_raw if isinstance(instr_raw, list) else [])]
@@ -161,7 +150,7 @@ def site_content(db: Session = Depends(get_db)):
 
     reviews = (
         db.query(Testimonial)
-        .filter(Testimonial.is_visible == True)  # noqa: E712
+        .filter(Testimonial.is_visible == True)
         .order_by(Testimonial.sort_order, Testimonial.id.desc())
         .all()
     )
@@ -172,7 +161,7 @@ def site_content(db: Session = Depends(get_db)):
         except Exception:
             d = None
         if not d:
-            continue  # старые отзывы со скринами не показываем — только новый формат
+            continue
         review_out.append({
             "id": t.id,
             "flag": d.get("flag", ""),
@@ -197,12 +186,11 @@ def site_content(db: Session = Depends(get_db)):
         "faq": faq_ml,
         "text_overrides": _json("site_text_overrides_json", "{}"),
         "reviews": review_out,
-        "apply_example_video": _json("apply_example_video_json", "{}"),  # {ru,en,ua} пути видео
+        "apply_example_video": _json("apply_example_video_json", "{}"),
         "app_downloads": _resolve_downloads(_json("app_downloads_json", "{}")),
         "instruction": instruction,
         "instruction_important": instruction_important,
     }
-
 
 def _resolve_downloads(cfg: dict) -> dict:
     """slot → {type, href}. Для apk href = публичный эндпоинт скачивания."""
@@ -219,7 +207,6 @@ def _resolve_downloads(cfg: dict) -> dict:
         out[slot] = {"type": typ, "href": href}
     return out
 
-
 @router.get("/testimonial-photo/{tid}")
 def testimonial_photo(tid: int, db: Session = Depends(get_db)):
     t = db.get(Testimonial, tid)
@@ -232,7 +219,6 @@ def testimonial_photo(tid: int, db: Session = Depends(get_db)):
     if not path.exists():
         raise HTTPException(status_code=404, detail="Не найдено")
     return FileResponse(path, media_type=storage.content_type_of(t.screenshot_path))
-
 
 @router.post("/training/login")
 def training_login(request: Request, payload: dict, db: Session = Depends(get_db)):
@@ -252,7 +238,7 @@ def training_login(request: Request, payload: dict, db: Session = Depends(get_db
 
     if not ok:
         raise HTTPException(status_code=401, detail="Неверный пароль")
-    from .site_content import lesson_resolve  # мультиязычные уроки
+    from .site_content import lesson_resolve
 
     def _ml(key):
         try:
@@ -271,7 +257,6 @@ def training_login(request: Request, payload: dict, db: Session = Depends(get_db
         "lessons_full": _by_lang(full),
         "lessons_quick": _by_lang(quick),
     }
-
 
 @router.post("/coefficient")
 def coefficient_check(payload: dict, db: Session = Depends(get_db)):
@@ -324,10 +309,9 @@ def coefficient_check(payload: dict, db: Session = Depends(get_db)):
         "profile_ok": down < 0.18,
         "monthly_ok": grade_limit is None or real_down < float(grade_limit),
         "grade_limit": grade_limit,
-        "risk_status": enriched["risk_status"],   # safe | warning | danger
+        "risk_status": enriched["risk_status"],
         "blocked": enriched["is_blocked"],
     }
-
 
 @router.get("/lesson-image/{rel:path}")
 def lesson_image(rel: str):
@@ -342,7 +326,6 @@ def lesson_image(rel: str):
         raise HTTPException(status_code=404, detail="Не найдено")
     return FileResponse(path, media_type=storage.content_type_of(rel))
 
-
 @router.get("/media-video/{rel:path}")
 def media_video(rel: str):
     """Публичная отдача видео (videos/<uuid>.<ext>). FileResponse поддерживает Range (перемотка)."""
@@ -355,7 +338,6 @@ def media_video(rel: str):
     if not path.exists():
         raise HTTPException(status_code=404, detail="Не найдено")
     return FileResponse(path, media_type=storage.content_type_of(rel))
-
 
 @router.get("/app-file/{rel:path}")
 def app_file(rel: str):
@@ -374,7 +356,6 @@ def app_file(rel: str):
         filename="app.apk",
     )
 
-
 @router.post("/training/progress")
 def training_progress(payload: dict, db: Session = Depends(get_db)):
     """Записывает прогресс прохождения обучения девушкой (по Halo ID). Доступ — по паролю обучения."""
@@ -385,7 +366,7 @@ def training_progress(payload: dict, db: Session = Depends(get_db)):
     if not real or password != real:
         raise HTTPException(status_code=401, detail="Неверный пароль")
     if not halo_id or kind not in ("quick", "full"):
-        return {"ok": False}  # без ID просто не пишем, не ошибка
+        return {"ok": False}
     done = int(payload.get("steps_done") or 0)
     total = int(payload.get("steps_total") or 0)
     completed = bool(payload.get("completed", False))
@@ -396,7 +377,6 @@ def training_progress(payload: dict, db: Session = Depends(get_db)):
     if row is None:
         row = TrainingProgress(halo_id=halo_id[:64], kind=kind)
         db.add(row)
-    # не уменьшаем прогресс при повторных заходах
     row.steps_done = max(row.steps_done or 0, done)
     row.steps_total = total or row.steps_total
     row.completed = row.completed or completed

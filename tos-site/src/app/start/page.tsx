@@ -12,7 +12,7 @@ export default function StartPage() {
   const s = t.start;
   return (
     <>
-      {/* 5 шагов */}
+      {}
       <Section className="!pt-12">
         <SectionHeading title={s.title} lead={s.lead} center />
         <div className="grid gap-3">
@@ -34,7 +34,7 @@ export default function StartPage() {
         </div>
       </Section>
 
-      {/* Тестовая неделя */}
+      {}
       <Section className="!py-8">
         <Reveal>
           <div className="rounded-xl3 border border-line p-6 sm:p-8 bg-gradient-to-br from-brand-700/30 to-neon-600/20 shadow-glow flex flex-col items-center text-center gap-3">
@@ -47,7 +47,7 @@ export default function StartPage() {
         </Reveal>
       </Section>
 
-      {/* Успешное / Минимальное / Риск */}
+      {}
       <Section className="!pt-0">
         <div className="grid lg:grid-cols-3 gap-4">
           <Reveal>
@@ -73,7 +73,7 @@ export default function StartPage() {
         </div>
       </Section>
 
-      {/* Вывод средств */}
+      {}
       <Section className="!pt-0">
         <Reveal>
           <div className="card p-6 sm:p-8 max-w-2xl mx-auto text-center">
@@ -88,7 +88,7 @@ export default function StartPage() {
         </Reveal>
       </Section>
 
-      {/* Коэффициент неприязни + где смотреть */}
+      {}
       <Section className="!pt-0">
         <div className="grid lg:grid-cols-2 gap-4">
           <Reveal>

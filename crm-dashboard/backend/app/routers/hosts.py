@@ -22,7 +22,6 @@ SORT_FIELDS = {
 GRADE_RANK = {"S": 0, "A": 1, "B": 2, "C": 3, "D": 4}
 RISK_RANK = {"danger": 0, "warning": 1, "safe": 2}
 
-
 @router.get("")
 def list_hosts(
     agency_id: int | None = None,
@@ -82,7 +81,6 @@ def list_hosts(
         "limit": limit,
     }
 
-
 @router.get("/{host_id}")
 def get_host(host_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     host = db.get(Host, host_id)
@@ -90,7 +88,6 @@ def get_host(host_id: int, user: User = Depends(get_current_user), db: Session =
         raise HTTPException(status_code=404, detail="Девушка не найдена")
     names = agency_names_map(db)
     return enrich_hosts(db, [host], names)[0]
-
 
 @router.post("/{host_id}/ratio")
 def change_ratio(
@@ -120,7 +117,6 @@ def change_ratio(
     parser = sessions.get_active(agency.id)
     ratio_value = int(round(payload.ratio_percent * 100))
     old_percent = host.ratio / 100
-    # Halo ждёт внутренний AccountId (id=26776921), а не DisplayAccountId — подтверждено перехватом
     result = parser.set_ratio(host.account_id or host.display_account_id, ratio_value, host.agent_name or agency.name)
 
     if result["ok"]:

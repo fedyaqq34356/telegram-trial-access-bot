@@ -4,14 +4,13 @@ export interface ChatMsg { side: "in" | "out"; text: string; time: string }
 export interface SeedReview {
   id: string;
   flag: string;
-  countryKey: string;     // ключ страны (локализуется в reviewsI18n)
+  countryKey: string;     
   age: number;
   date: string;
   results: { label: string; amount: string }[];
   messages: ChatMsg[];
 }
 
-// Результат-лейблы и страны по языкам
 export const reviewsI18n: Record<Lang, { countries: Record<string, string>; res: Record<string, string> }> = {
   ru: {
     countries: { ua: "Украины", pl: "Польши", cz: "Чехии", lt: "Литвы", kz: "Казахстана", de: "Германии" },

@@ -13,7 +13,6 @@ function ageWord(lang: Lang, n: number): string {
   return `${n} ${w}`;
 }
 
-// Анонимный аватар-силуэт (никаких реальных фото/имён)
 function AnonAvatar({ className = "w-7 h-7" }: { className?: string }) {
   return (
     <span className={`${className} rounded-full grid place-items-center bg-white/20 overflow-hidden shrink-0`}>
@@ -32,7 +31,7 @@ export function ReviewCard({ review }: { review: SeedReview }) {
 
   return (
     <div className="card p-4 sm:p-5 h-full flex flex-col sm:flex-row gap-4">
-      {/* META */}
+      {}
       <div className="sm:w-40 shrink-0 flex flex-row sm:flex-col gap-x-4 gap-y-3 items-start">
         <div>
           <div className="font-bold leading-tight">{t.reviews.cardFrom} {country}</div>
@@ -52,9 +51,9 @@ export function ReviewCard({ review }: { review: SeedReview }) {
         </span>
       </div>
 
-      {/* TELEGRAM CHAT */}
+      {}
       <div className="flex-1 min-w-0 rounded-2xl overflow-hidden border border-white/10 bg-[#0e1621]">
-        {/* header (telegram-blue) */}
+        {}
         <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-[#2AABEE] to-[#1c93d6]">
           <svg viewBox="0 0 24 24" className="w-4 h-4 text-white/90" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
           <AnonAvatar className="w-7 h-7" />
@@ -65,7 +64,7 @@ export function ReviewCard({ review }: { review: SeedReview }) {
           <span className="ml-auto text-white/70 text-lg leading-none">⋮</span>
         </div>
 
-        {/* messages */}
+        {}
         <div className="p-3 space-y-2 bg-[radial-gradient(circle_at_30%_10%,rgba(124,58,237,0.10),transparent_60%)]">
           <div className="flex justify-center">
             <span className="text-[10px] text-slate-400 bg-black/30 rounded-full px-2 py-0.5">{review.date}</span>

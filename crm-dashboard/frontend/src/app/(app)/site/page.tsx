@@ -496,7 +496,7 @@ function LessonImage({ image, onChange, readOnly }: { image?: string; onChange: 
       const fd = new FormData(); fd.set("image", file);
       const r = await api.upload<{ url: string }>("/site-content/lesson-image", fd);
       onChange(r.url);
-    } catch { /* ignore */ }
+    } catch {  }
     finally { setBusy(false); }
   }
   return (

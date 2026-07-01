@@ -21,6 +21,7 @@ export default function AdminsPage() {
     if (u.accesses.some((a) => a.can_change_ratio)) parts.push("Изменение %");
     if (u.accesses.some((a) => a.can_split)) parts.push("Split");
     if (u.can_manage_users) parts.push("Управление польз.");
+    if (u.can_view_traffic) parts.push("Статистика сайта");
     return parts.join(", ");
   }
 
@@ -80,6 +81,7 @@ function UserForm({ user, agencies, isSuperadmin, onClose, onSaved }: {
   const [f, setF] = useState<any>({
     username: user?.username || "", password: "", name: user?.name || "",
     role: user?.role || "admin", can_manage_users: user?.can_manage_users || false,
+    can_view_traffic: user?.can_view_traffic || false,
     is_active: user?.is_active ?? true,
   });
   const [access, setAccess] = useState<Record<number, { can_view: boolean; can_change_ratio: boolean; can_split: boolean }>>(() => {
@@ -101,7 +103,7 @@ function UserForm({ user, agencies, isSuperadmin, onClose, onSaved }: {
   async function save() {
     setBusy(true); setError("");
     const accesses = Object.entries(access).map(([id, p]) => ({ agency_id: Number(id), ...p }));
-    const body: any = { name: f.name, role: f.role, can_manage_users: f.can_manage_users, accesses };
+    const body: any = { name: f.name, role: f.role, can_manage_users: f.can_manage_users, can_view_traffic: f.can_view_traffic, accesses };
     if (f.password) body.password = f.password;
     try {
       if (isNew) await api.post("/users", { username: f.username, password: f.password || "changeme", ...body });
@@ -130,6 +132,7 @@ function UserForm({ user, agencies, isSuperadmin, onClose, onSaved }: {
         </div>
 
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.can_manage_users} onChange={(e) => up("can_manage_users", e.target.checked)} /> Может управлять пользователями CRM и сайтом агентства</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.can_view_traffic} onChange={(e) => up("can_view_traffic", e.target.checked)} /> Доступ к статистике посещений сайта</label>
         {!isNew && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.is_active} onChange={(e) => up("is_active", e.target.checked)} /> Активен</label>}
 
         {!isSuper && (

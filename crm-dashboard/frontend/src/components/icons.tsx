@@ -34,4 +34,5 @@ export const IconOnline = (p: P) => <S {...p} d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 
 export const IconCheck = (p: P) => <S {...p} d="M20 6L9 17l-5-5" />;
 export const IconCrown = (p: P) => <S {...p} d="M3 7l4.5 4L12 4l4.5 7L21 7l-1.8 11H4.8L3 7z" fill />;
 export const IconMenu = (p: P) => <S {...p} d="M4 6h16M4 12h16M4 18h16" />;
+export const IconChart = (p: P) => <S {...p} d="M3 3v18h18M7 15l4-4 3 3 5-6" />;
 export const IconClose = (p: P) => <S {...p} d="M18 6L6 18M6 6l12 12" />;

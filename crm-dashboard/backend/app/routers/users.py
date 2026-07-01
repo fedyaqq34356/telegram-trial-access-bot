@@ -23,7 +23,8 @@ def _to_out(db: Session, user: User) -> UserOut:
     ]
     return UserOut(
         id=user.id, username=user.username, name=user.name, role=user.role,
-        can_manage_users=user.can_manage_users, is_active=user.is_active,
+        can_manage_users=user.can_manage_users, can_view_traffic=user.can_view_traffic,
+        is_active=user.is_active,
         created_at=user.created_at, last_login=user.last_login, accesses=accesses,
     )
 
@@ -56,6 +57,7 @@ def create_user(payload: UserCreate, admin: User = Depends(require_manage_users)
         name=payload.name,
         role=role,
         can_manage_users=payload.can_manage_users,
+        can_view_traffic=payload.can_view_traffic,
     )
     db.add(user)
     db.flush()
@@ -80,6 +82,8 @@ def update_user(user_id: int, payload: UserUpdate, admin: User = Depends(require
         user.role = payload.role
     if payload.can_manage_users is not None:
         user.can_manage_users = payload.can_manage_users
+    if payload.can_view_traffic is not None:
+        user.can_view_traffic = payload.can_view_traffic
     if payload.is_active is not None:
         user.is_active = payload.is_active
     if payload.accesses is not None:

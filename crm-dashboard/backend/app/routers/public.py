@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..database import get_db
 from ..deps import client_ip
-from ..models import Application, ApplicationStatusEvent, Host, Testimonial, TrainingAccess, TrainingProgress
+from ..models import Application, ApplicationStatusEvent, Host, PageVisit, Testimonial, TrainingAccess, TrainingProgress
 from ..services import app_settings, levels, storage, telegram_notify
 from ..services.applications_service import build_notification_text
 
@@ -38,6 +38,74 @@ def _rate_ok(ip: str) -> bool:
 def _truthy(v: str) -> bool:
     return str(v).strip().lower() in ("1", "true", "yes", "on", "да", "y")
 
+def _device_of(ua: str) -> str:
+    u = (ua or "").lower()
+    if any(k in u for k in ("ipad", "tablet", "playbook", "silk")):
+        return "tablet"
+    if any(k in u for k in ("mobi", "android", "iphone", "ipod", "phone")):
+        return "mobile"
+    return "desktop"
+
+def _host_of(url: str) -> str:
+    try:
+        from urllib.parse import urlparse
+        return (urlparse(url).hostname or "")[:255]
+    except Exception:
+        return ""
+
+_track_hits: dict[str, list[float]] = {}
+TRACK_WINDOW = 60.0
+TRACK_MAX = 40
+
+def _track_ok(ip: str) -> bool:
+    now = time.time()
+    hist = [t for t in _track_hits.get(ip, []) if now - t < TRACK_WINDOW]
+    _track_hits[ip] = hist
+    if len(hist) >= TRACK_MAX:
+        return False
+    hist.append(now)
+    return True
+
+@router.post("/track")
+def track_visit(request: Request, payload: dict, db: Session = Depends(get_db)):
+    """Приём события посещения от публичного сайта. Без авторизации, легковесный."""
+    ip = client_ip(request)
+    if not _track_ok(ip):
+        return {"ok": False}
+
+    path = str(payload.get("path", ""))[:512]
+    if not path:
+        return {"ok": False}
+    referrer = str(payload.get("referrer", ""))[:512]
+    visitor_id = str(payload.get("visitor_id", ""))[:64]
+    ua = request.headers.get("user-agent", "")[:1000]
+
+    is_unique = False
+    if visitor_id:
+        is_unique = db.query(PageVisit.id).filter(PageVisit.visitor_id == visitor_id).first() is None
+
+    def _u(key: str) -> str:
+        return str(payload.get(key, ""))[:255]
+
+    db.add(PageVisit(
+        path=path,
+        referrer=referrer,
+        referrer_host=_host_of(referrer),
+        utm_source=_u("utm_source"),
+        utm_medium=_u("utm_medium"),
+        utm_campaign=_u("utm_campaign"),
+        utm_content=_u("utm_content"),
+        utm_term=_u("utm_term"),
+        visitor_id=visitor_id,
+        is_unique=is_unique,
+        lang=str(payload.get("lang", ""))[:8],
+        device=_device_of(ua),
+        ip=ip,
+        user_agent=ua,
+    ))
+    db.commit()
+    return {"ok": True}
+
 @router.post("/applications")
 async def submit_application(
     request: Request,
@@ -51,6 +119,9 @@ async def submit_application(
     experience_apps: str = Form(""),
     time_commitment: str = Form(""),
     website: str = Form(""),
+    utm_source: str = Form(""),
+    utm_campaign: str = Form(""),
+    visitor_id: str = Form(""),
     photos: list[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
 ):
@@ -89,6 +160,9 @@ async def submit_application(
         time_commitment=time_commitment.strip()[:255],
         status="new",
         source="site",
+        utm_source=utm_source.strip()[:255],
+        utm_campaign=utm_campaign.strip()[:255],
+        visitor_id=visitor_id.strip()[:64],
     )
     db.add(app_row)
     db.commit()

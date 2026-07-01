@@ -26,6 +26,7 @@ class UserCreate(BaseModel):
     name: str = ""
     role: str = "admin"
     can_manage_users: bool = False
+    can_view_traffic: bool = False
     accesses: list[AccessItem] = []
 
 class UserUpdate(BaseModel):
@@ -33,6 +34,7 @@ class UserUpdate(BaseModel):
     name: str | None = None
     role: str | None = None
     can_manage_users: bool | None = None
+    can_view_traffic: bool | None = None
     is_active: bool | None = None
     accesses: list[AccessItem] | None = None
 
@@ -49,6 +51,7 @@ class UserOut(BaseModel):
     name: str
     role: str
     can_manage_users: bool
+    can_view_traffic: bool = False
     is_active: bool
     created_at: datetime | None = None
     last_login: datetime | None = None

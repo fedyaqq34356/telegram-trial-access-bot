@@ -20,6 +20,7 @@ from .routers import (
     site_content,
     split,
     sync,
+    traffic,
     users,
 )
 from .security import hash_password
@@ -33,9 +34,16 @@ def _ensure_columns():
     Досоздаём недостающие через ALTER TABLE (идемпотентно)."""
     from sqlalchemy import inspect, text
     dt_type = "DATETIME" if engine.dialect.name == "sqlite" else "TIMESTAMP"
+    bool_default = "0" if engine.dialect.name == "sqlite" else "FALSE"
     wanted = {
         "agencies": [("last_split_at", dt_type)],
         "testimonials": [("data_json", "TEXT")],
+        "users": [("can_view_traffic", f"BOOLEAN DEFAULT {bool_default}")],
+        "applications": [
+            ("utm_source", "VARCHAR(255) DEFAULT ''"),
+            ("utm_campaign", "VARCHAR(255) DEFAULT ''"),
+            ("visitor_id", "VARCHAR(64) DEFAULT ''"),
+        ],
     }
     insp = inspect(engine)
     with engine.begin() as conn:
@@ -87,7 +95,7 @@ app.add_middleware(
 )
 
 for r in (auth, agencies, hosts, dashboard, risk, split, users, logs, settings_router, sync,
-          public, applications, site_content):
+          public, applications, site_content, traffic):
     app.include_router(r.router, prefix="/api")
 
 app.include_router(applications.internal_router, prefix="/api")

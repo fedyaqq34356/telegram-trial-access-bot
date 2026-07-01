@@ -32,6 +32,11 @@ def require_manage_users(user: User = Depends(get_current_user)) -> User:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет прав на управление пользователями")
     return user
 
+def require_view_traffic(user: User = Depends(get_current_user)) -> User:
+    if not (user.is_superadmin or user.can_view_traffic):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к статистике сайта")
+    return user
+
 def accessible_agency_ids(db: Session, user: User) -> list[int]:
     if user.is_superadmin:
         return [a.id for a in db.query(Agency).all()]

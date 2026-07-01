@@ -6,18 +6,19 @@ import { useAuth } from "@/lib/auth";
 import { fetcher } from "@/lib/api";
 import {
   IconDashboard, IconUsers, IconRisk, IconAgency, IconSplit,
-  IconAdmins, IconLogs, IconSettings, IconLogout, IconCrown, IconInbox, IconGlobe, IconGraduation,
+  IconAdmins, IconLogs, IconSettings, IconLogout, IconCrown, IconInbox, IconGlobe, IconGraduation, IconChart,
 } from "./icons";
 import { Avatar } from "./ui";
 import type { Paged, Host } from "@/lib/types";
 
-const SECTIONS: { title: string; items: { href: string; label: string; icon: typeof IconDashboard; badge?: string; manage?: boolean }[] }[] = [
+const SECTIONS: { title: string; items: { href: string; label: string; icon: typeof IconDashboard; badge?: string; manage?: boolean; perm?: "traffic" }[] }[] = [
   {
     title: "Сайт-визитка",
     items: [
       { href: "/applications", label: "Заявки", icon: IconInbox, badge: "applications", manage: true },
       { href: "/site", label: "Мой сайт", icon: IconGlobe, manage: true },
       { href: "/training-progress", label: "Прогресс обучения", icon: IconGraduation, manage: true },
+      { href: "/traffic", label: "Статистика сайта", icon: IconChart, perm: "traffic" },
     ],
   },
   {
@@ -60,7 +61,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="flex-1 px-3 space-y-4 overflow-y-auto pb-4">
         {SECTIONS.map((section) => {
-          const items = section.items.filter((item) => !(item.manage && !me?.can_manage_users));
+          const items = section.items.filter((item) =>
+            !(item.manage && !me?.can_manage_users) && !(item.perm === "traffic" && !me?.can_view_traffic)
+          );
           if (items.length === 0) return null;
           return (
             <div key={section.title} className="space-y-1">

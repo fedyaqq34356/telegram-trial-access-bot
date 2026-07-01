@@ -99,6 +99,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(255), default="")
     role: Mapped[str] = mapped_column(String(32), default="admin")
     can_manage_users: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_view_traffic: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -209,6 +210,9 @@ class Application(Base):
     status: Mapped[str] = mapped_column(String(32), default="new", index=True)
     manager_comment: Mapped[str] = mapped_column(Text, default="")
     source: Mapped[str] = mapped_column(String(64), default="site")
+    utm_source: Mapped[str] = mapped_column(String(255), default="")
+    utm_campaign: Mapped[str] = mapped_column(String(255), default="")
+    visitor_id: Mapped[str] = mapped_column(String(64), default="", index=True)
 
     events: Mapped[list["ApplicationStatusEvent"]] = relationship(
         back_populates="application", cascade="all, delete-orphan",
@@ -266,3 +270,27 @@ class TrainingProgress(Base):
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow, index=True)
+
+class PageVisit(Base):
+    """Посещение страницы публичного сайта (свой трекер, без внешних сервисов)."""
+    __tablename__ = "page_visits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    path: Mapped[str] = mapped_column(String(512), default="", index=True)
+    referrer: Mapped[str] = mapped_column(String(512), default="")
+    referrer_host: Mapped[str] = mapped_column(String(255), default="")
+
+    utm_source: Mapped[str] = mapped_column(String(255), default="", index=True)
+    utm_medium: Mapped[str] = mapped_column(String(255), default="")
+    utm_campaign: Mapped[str] = mapped_column(String(255), default="", index=True)
+    utm_content: Mapped[str] = mapped_column(String(255), default="")
+    utm_term: Mapped[str] = mapped_column(String(255), default="")
+
+    visitor_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    is_unique: Mapped[bool] = mapped_column(Boolean, default=False)
+    lang: Mapped[str] = mapped_column(String(8), default="")
+    device: Mapped[str] = mapped_column(String(16), default="")
+
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    user_agent: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)

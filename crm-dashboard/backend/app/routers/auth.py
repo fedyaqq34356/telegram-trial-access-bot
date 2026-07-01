@@ -57,5 +57,6 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         "role": user.role,
         "is_superadmin": user.is_superadmin,
         "can_manage_users": user.is_superadmin or user.can_manage_users,
+        "can_view_traffic": user.is_superadmin or user.can_view_traffic,
         "accessible_agency_ids": accessible_agency_ids(db, user),
     }

@@ -5,6 +5,7 @@ export interface Me {
   role: string;
   is_superadmin: boolean;
   can_manage_users: boolean;
+  can_view_traffic: boolean;
   accessible_agency_ids: number[];
 }
 
@@ -88,10 +89,31 @@ export interface CrmUser {
   name: string;
   role: string;
   can_manage_users: boolean;
+  can_view_traffic: boolean;
   is_active: boolean;
   created_at: string | null;
   last_login: string | null;
   accesses: AccessOut[];
+}
+
+export interface TrafficKV { key: string; count: number }
+
+export interface TrafficStats {
+  range_days: number;
+  totals: {
+    visits: number;
+    uniques: number;
+    applications: number;
+    conversion_rate: number;
+    visits_prev: number;
+    visits_delta_percent: number | null;
+  };
+  daily: { date: string; visits: number; uniques: number }[];
+  sources: TrafficKV[];
+  campaigns: TrafficKV[];
+  top_pages: TrafficKV[];
+  devices: TrafficKV[];
+  conversion_by_source: { source: string; visits: number; applications: number; rate: number }[];
 }
 
 export interface SplitOp {

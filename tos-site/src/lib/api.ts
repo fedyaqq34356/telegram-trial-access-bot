@@ -96,3 +96,57 @@ export async function checkCoefficient(password: string, haloId: string): Promis
 export function mediaUrl(path: string): string {
   return path.startsWith("http") ? path : `${API_BASE.replace(/\/api$/, "")}${path}`;
 }
+
+const VISITOR_KEY = "tos_visitor_id";
+const UTM_KEY = "tos_utm";
+const UTM_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const;
+
+export function getVisitorId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem(VISITOR_KEY);
+  if (!id) {
+    id = (crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    localStorage.setItem(VISITOR_KEY, id);
+  }
+  return id;
+}
+
+/** UTM «первого касания»: сохраняем при первом заходе с меткой, отдаём при заявке. */
+export function captureUtm(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const fresh: Record<string, string> = {};
+  UTM_FIELDS.forEach((k) => {
+    const v = params.get(k);
+    if (v) fresh[k] = v.slice(0, 255);
+  });
+  if (Object.keys(fresh).length && !localStorage.getItem(UTM_KEY)) {
+    localStorage.setItem(UTM_KEY, JSON.stringify(fresh));
+  }
+  return fresh;
+}
+
+export function storedUtm(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(UTM_KEY) || "{}"); } catch { return {}; }
+}
+
+export function trackVisit(path: string, lang: string): void {
+  if (typeof window === "undefined") return;
+  const utm = { ...storedUtm(), ...captureUtm() };
+  const body = {
+    path,
+    referrer: document.referrer || "",
+    visitor_id: getVisitorId(),
+    lang,
+    ...utm,
+  };
+  try {
+    const json = JSON.stringify(body);
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(`${API_BASE}/public/track`, new Blob([json], { type: "application/json" }));
+    } else {
+      fetch(`${API_BASE}/public/track`, { method: "POST", headers: { "Content-Type": "application/json" }, body: json, keepalive: true }).catch(() => {});
+    }
+  } catch {  }
+}

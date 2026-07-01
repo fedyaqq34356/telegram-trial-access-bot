@@ -4,6 +4,7 @@ import { I18nProvider } from "@/i18n";
 import { SiteContentProvider } from "@/components/SiteContent";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { VisitTracker } from "@/components/VisitTracker";
 
 export const metadata: Metadata = {
   title: "TOS Agency — работа стрим-моделью в HALO",
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <I18nProvider>
           <SiteContentProvider>
+            <VisitTracker />
             <Header />
             <main>{children}</main>
             <Footer />

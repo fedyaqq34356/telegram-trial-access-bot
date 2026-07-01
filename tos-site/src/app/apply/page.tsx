@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useI18n } from "@/i18n";
 import { useSiteContent } from "@/components/SiteContent";
 import { Section } from "@/components/ui";
-import { submitApplication } from "@/lib/api";
+import { submitApplication, getVisitorId, storedUtm } from "@/lib/api";
 import { IconArrow, IconCheck, IconClose, IconPlay, IconText, IconTelegram, IconWhatsapp } from "@/components/icons";
 
 interface FormState {
@@ -83,6 +83,10 @@ export default function ApplyPage() {
       fd.set("experience_apps", f.experience === "yes" ? f.experienceApps : "");
       fd.set("time_commitment", f.time);
       fd.set("website", website);
+      const utm = storedUtm();
+      fd.set("utm_source", utm.utm_source || "");
+      fd.set("utm_campaign", utm.utm_campaign || "");
+      fd.set("visitor_id", getVisitorId());
       f.photos.forEach((p) => fd.append("photos", p));
       await submitApplication(fd);
       setDone(true);

@@ -208,6 +208,18 @@ async def show_agencies(message: Message, db: Database):
     text = f"🏢 Подключённых агентств: {len(agencies)}\n\n"
     for ag in agencies:
         tfa_str = "✅ Есть" if ag["tfa_required"] else "❌ Нет"
-        text += f"ID {ag['id']}. {ag['name']}\n   URL: {ag['url']}\n   2FA: {tfa_str}\n\n"
-    text += "Чтобы удалить — нажмите «Удалить агентство»."
-    await message.answer(text)
+        notify_str = "🔔 Вкл" if ag["notify_enabled"] else "🔕 Выкл"
+        text += f"ID {ag['id']}. {ag['name']}\n   URL: {ag['url']}\n   2FA: {tfa_str}\n   Уведомления в группу: {notify_str}\n\n"
+    text += (
+        "Чтобы удалить — нажмите «Удалить агентство».\n\n"
+        "Нажмите на агентство ниже, чтобы включить/выключить уведомления о риске "
+        "в группу для этого агентства (проверка коэффициента девушками работает независимо):"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=f"{'🔔' if ag['notify_enabled'] else '🔕'} {ag['name']}",
+            callback_data=f"ag_notify_toggle_{ag['id']}"
+        )]
+        for ag in agencies
+    ])
+    await message.answer(text, reply_markup=kb)

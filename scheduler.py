@@ -199,7 +199,7 @@ async def check_all_agencies_for_risk(bot: Bot, db: Database, admin_ids: list, f
         return
 
     group_chat_id = int(group_chat_id_str)
-    agencies = db.get_all_agencies()
+    agencies = [a for a in db.get_all_agencies() if a["notify_enabled"]]
 
     await asyncio.gather(
         *[_check_one_agency(agency, bot, db, group_chat_id, force_notify) for agency in agencies],

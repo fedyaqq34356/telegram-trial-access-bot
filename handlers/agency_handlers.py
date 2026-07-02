@@ -13,6 +13,43 @@ logger = logging.getLogger(__name__)
 
 agency_setup: dict = {}
 
+@router.callback_query(F.data.startswith("ag_notify_toggle_"))
+async def toggle_agency_notify_callback(callback: CallbackQuery, db: Database):
+    if not db.is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+
+    agency_id = int(callback.data.split("_")[-1])
+    agency = db.get_agency(agency_id)
+    if not agency:
+        await callback.answer("Агентство не найдено", show_alert=True)
+        return
+
+    new_val = db.toggle_agency_notify(agency_id)
+    status = "включены 🔔" if new_val else "выключены 🔕"
+    await callback.answer(f"«{agency['name']}»: уведомления {status}")
+
+    agencies = db.get_all_agencies()
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=f"{'🔔' if ag['notify_enabled'] else '🔕'} {ag['name']}",
+            callback_data=f"ag_notify_toggle_{ag['id']}"
+        )]
+        for ag in agencies
+    ])
+
+    text = f"🏢 Подключённых агентств: {len(agencies)}\n\n"
+    for ag in agencies:
+        tfa_str = "✅ Есть" if ag["tfa_required"] else "❌ Нет"
+        notify_str = "🔔 Вкл" if ag["notify_enabled"] else "🔕 Выкл"
+        text += f"ID {ag['id']}. {ag['name']}\n   URL: {ag['url']}\n   2FA: {tfa_str}\n   Уведомления в группу: {notify_str}\n\n"
+    text += (
+        "Чтобы удалить — нажмите «Удалить агентство».\n\n"
+        "Нажмите на агентство ниже, чтобы включить/выключить уведомления о риске "
+        "в группу для этого агентства (проверка коэффициента девушками работает независимо):"
+    )
+    await callback.message.edit_text(text, reply_markup=kb)
+
 DEFAULT_URL = "https://admin.livegirl.me"
 
 STEPS = ["name", "account", "password", "aemail", "apassword"]

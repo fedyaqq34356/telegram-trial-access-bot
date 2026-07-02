@@ -63,9 +63,13 @@ class Database:
                     password TEXT NOT NULL,
                     aemail TEXT NOT NULL,
                     apassword TEXT NOT NULL,
-                    tfa_required INTEGER DEFAULT 0
+                    tfa_required INTEGER DEFAULT 0,
+                    notify_enabled INTEGER DEFAULT 1
                 )
             ''')
+            existing_cols = {row[1] for row in conn.execute('PRAGMA table_info(agencies)').fetchall()}
+            if 'notify_enabled' not in existing_cols:
+                conn.execute('ALTER TABLE agencies ADD COLUMN notify_enabled INTEGER DEFAULT 1')
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS risk_notifications (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -252,11 +256,22 @@ class Database:
             conn.execute('DELETE FROM agencies WHERE id = ?', (agency_id,))
 
     def update_agency(self, agency_id: int, field: str, value):
-        allowed = {"name", "account", "password", "aemail", "apassword", "tfa_required"}
+        allowed = {"name", "account", "password", "aemail", "apassword", "tfa_required", "notify_enabled"}
         if field not in allowed:
             raise ValueError(f"Invalid field: {field}")
         with self._get_connection() as conn:
             conn.execute(f'UPDATE agencies SET {field} = ? WHERE id = ?', (value, agency_id))
+
+    def toggle_agency_notify(self, agency_id: int) -> bool:
+        """Переключить уведомления по агентству. Возвращает новое значение."""
+        with self._get_connection() as conn:
+            cursor = conn.execute('SELECT notify_enabled FROM agencies WHERE id = ?', (agency_id,))
+            row = cursor.fetchone()
+            if row is None:
+                raise ValueError(f"Agency {agency_id} not found")
+            new_val = 0 if row['notify_enabled'] else 1
+            conn.execute('UPDATE agencies SET notify_enabled = ? WHERE id = ?', (new_val, agency_id))
+            return bool(new_val)
 
     def should_notify(self, anchor_id: str) -> bool:
         with self._get_connection() as conn:

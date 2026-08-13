@@ -6,6 +6,8 @@ fetch_all_hosts (пагинация), set_ratio (смена %), split_coins (spl
 """
 import json
 import logging
+import time
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 import requests
@@ -15,7 +17,7 @@ logger = logging.getLogger(__name__)
 SESSION_EXPIRED = "SESSION_EXPIRED"
 
 class HaloLiveParser:
-    def __init__(self, url, account, password, aemail, apassword):
+    def __init__(self, url, account, password, aemail, apassword, trusted_device: str = ""):
         self.url = self._normalize_url(url)
         self.account = account
         self.password = password
@@ -27,6 +29,8 @@ class HaloLiveParser:
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0",
         }
         self.is_logged_in = False
+        if trusted_device:
+            self.session.cookies.set("trusted_device", trusted_device, domain=self._domain)
 
     @staticmethod
     def _normalize_url(url: str) -> str:
@@ -219,6 +223,58 @@ class HaloLiveParser:
             )
         except Exception as e:
             logger.warning(f"refresh_panel failed: {e}")
+
+    def create_withdraw_token(self, agent_name: str) -> str | None:
+        """Одноразовый токен на вывод средств (шаг между 2FA и самим выводом на мировом сервере).
+
+        Вызов идёт с IP сервера. По рабочей гипотезе Halo Live привязывает токен к сессии/IP,
+        из которой он создан, поэтому логируем всё: какая сессия использована, какой egress-IP
+        видит Halo от сервера, что именно вернулось и сколько это заняло.
+        """
+        from .net_debug import egress_ip, fingerprint
+
+        url = f"{self.url}/anchor/withdrawalManage/createWithdrawToken"
+        headers = self._ref()
+        # Значения cookie не пишем — только имена и отпечатки, чтобы по логам можно было
+        # понять «та же сессия или другая», не оставляя в журнале живых кредов.
+        cookies = {c.name: fingerprint(c.value) for c in self.session.cookies}
+        started = time.monotonic()
+        logger.warning(
+            "[withdraw-debug] --> createWithdrawToken POST %s\n"
+            "  agent: %s\n"
+            "  headers: %s\n"
+            "  cookies (имя -> отпечаток): %s\n"
+            "  egress_ip (что Halo видит от сервера): %s",
+            url, agent_name, headers, cookies, egress_ip(),
+        )
+        try:
+            r = self.session.post(
+                url,
+                data={"agent": agent_name},
+                headers=headers,
+                timeout=20,
+            )
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            logger.warning(
+                "[withdraw-debug] <-- createWithdrawToken status=%s elapsed_ms=%s\n"
+                "  response_headers: %s\n"
+                "  raw_body: %s",
+                r.status_code, elapsed_ms, dict(r.headers), r.text[:20000],
+            )
+            data = r.json()
+            if data.get("code") == 0 and data.get("data"):
+                token = data["data"]
+                logger.warning(
+                    "[withdraw-debug] createWithdrawToken OK token_fp=%s len=%s создан_с_ip=%s в=%s",
+                    fingerprint(token), len(str(token)), egress_ip(),
+                    datetime.now(timezone.utc).isoformat(),
+                )
+                return token
+            logger.warning(f"[withdraw-debug] createWithdrawToken failed: {data}")
+            return None
+        except Exception as e:
+            logger.warning(f"[withdraw-debug] createWithdrawToken error: {e!r}", exc_info=True)
+            return None
 
     def get_agent_balance(self) -> dict:
         """«Готово к выводу» — баланс агентства. Halo рендерит его прямо в страницу

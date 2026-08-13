@@ -20,6 +20,25 @@ export interface Agency {
   cooldown_remaining_seconds: number;
   can_change_ratio: boolean;
   can_split: boolean;
+  can_withdraw: boolean;
+  withdraw_configured: boolean;
+  withdraw_account_name: string;
+  withdraw_info_domain: string;
+  withdraw_info_port: number;
+  withdraw_domain: string;
+  withdraw_port: number;
+}
+
+export interface WithdrawOp {
+  id: number;
+  agency_id: number;
+  agency_name: string;
+  network: string;
+  address: string;
+  status: string;
+  message: string;
+  created_at: string | null;
+  finished_at: string | null;
 }
 
 export interface Host {
@@ -81,6 +100,7 @@ export interface AccessOut {
   can_view: boolean;
   can_change_ratio: boolean;
   can_split: boolean;
+  can_withdraw: boolean;
 }
 
 export interface CrmUser {

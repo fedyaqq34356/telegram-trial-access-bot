@@ -19,6 +19,7 @@ class AccessItem(BaseModel):
     can_view: bool = True
     can_change_ratio: bool = False
     can_split: bool = False
+    can_withdraw: bool = False
 
 class UserCreate(BaseModel):
     username: str
@@ -44,6 +45,7 @@ class AccessOut(BaseModel):
     can_view: bool
     can_change_ratio: bool
     can_split: bool
+    can_withdraw: bool = False
 
 class UserOut(BaseModel):
     id: int
@@ -65,6 +67,12 @@ class AgencyCreate(BaseModel):
     aemail: str = ""
     apassword: str = ""
     tfa_required: bool = False
+    withdraw_account_name: str = ""
+    withdraw_password: str = ""
+    withdraw_info_domain: str = ""
+    withdraw_info_port: int = 0
+    withdraw_domain: str = ""
+    withdraw_port: int = 0
 
 class AgencyUpdate(BaseModel):
     name: str | None = None
@@ -75,6 +83,12 @@ class AgencyUpdate(BaseModel):
     apassword: str | None = None
     tfa_required: bool | None = None
     is_active: bool | None = None
+    withdraw_account_name: str | None = None
+    withdraw_password: str | None = None
+    withdraw_info_domain: str | None = None
+    withdraw_info_port: int | None = None
+    withdraw_domain: str | None = None
+    withdraw_port: int | None = None
 
 class AgencyOut(BaseModel):
     id: int
@@ -87,6 +101,13 @@ class AgencyOut(BaseModel):
     cooldown_remaining_seconds: int = 0
     can_change_ratio: bool = True
     can_split: bool = True
+    can_withdraw: bool = True
+    withdraw_configured: bool = False
+    withdraw_account_name: str = ""
+    withdraw_info_domain: str = ""
+    withdraw_info_port: int = 0
+    withdraw_domain: str = ""
+    withdraw_port: int = 0
 
 class RatioUpdate(BaseModel):
     ratio_percent: float = Field(ge=0, le=20)

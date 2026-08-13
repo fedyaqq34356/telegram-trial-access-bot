@@ -33,8 +33,18 @@ class Agency(Base):
     phpsessid: Mapped[str] = mapped_column(String(255), default="")
     acuid: Mapped[str] = mapped_column(String(255), default="")
     cookies_json: Mapped[str] = mapped_column(Text, default="")
+    trusted_device_cookie: Mapped[str] = mapped_column(String(255), default="")
     session_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     withdrawable_coins: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Вывод средств: отдельный аккаунт агентства на "мировом" сервере Halo Live.
+    # Заполняется один раз через CRM после того, как реквизиты подсмотрены в реальном запросе.
+    withdraw_account_name: Mapped[str] = mapped_column(String(255), default="")
+    withdraw_password: Mapped[str] = mapped_column(String(255), default="")
+    withdraw_info_domain: Mapped[str] = mapped_column(String(255), default="")
+    withdraw_info_port: Mapped[int] = mapped_column(Integer, default=0)
+    withdraw_domain: Mapped[str] = mapped_column(String(255), default="")
+    withdraw_port: Mapped[int] = mapped_column(Integer, default=0)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -123,6 +133,7 @@ class UserAgencyAccess(Base):
     can_view: Mapped[bool] = mapped_column(Boolean, default=True)
     can_change_ratio: Mapped[bool] = mapped_column(Boolean, default=False)
     can_split: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_withdraw: Mapped[bool] = mapped_column(Boolean, default=False)
 
     user: Mapped["User"] = relationship(back_populates="accesses")
     agency: Mapped["Agency"] = relationship(back_populates="accesses")
@@ -147,6 +158,23 @@ class SplitOperation(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     duration_seconds: Mapped[float] = mapped_column(Float, default=0.0)
+
+class WithdrawOperation(Base):
+    __tablename__ = "withdraw_operations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    agency_id: Mapped[int] = mapped_column(Integer)
+    agency_name: Mapped[str] = mapped_column(String(255), default="")
+
+    network: Mapped[str] = mapped_column(String(32), default="")
+    address: Mapped[str] = mapped_column(String(255), default="")
+
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    message: Mapped[str] = mapped_column(Text, default="")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 class ActionLog(Base):
     __tablename__ = "action_log"

@@ -18,6 +18,7 @@ def _to_out(db: Session, user: User) -> UserOut:
             "can_view": acc.can_view,
             "can_change_ratio": acc.can_change_ratio,
             "can_split": acc.can_split,
+            "can_withdraw": acc.can_withdraw,
         }
         for acc in user.accesses
     ]
@@ -37,6 +38,7 @@ def _apply_accesses(db: Session, user: User, accesses: list) -> None:
         db.add(UserAgencyAccess(
             user_id=user.id, agency_id=item.agency_id,
             can_view=item.can_view, can_change_ratio=item.can_change_ratio, can_split=item.can_split,
+            can_withdraw=item.can_withdraw,
         ))
 
 @router.get("", response_model=list[UserOut])

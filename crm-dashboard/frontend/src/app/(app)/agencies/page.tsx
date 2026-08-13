@@ -105,6 +105,9 @@ function AgencyForm({ agency, onClose, onSaved }: { agency: Partial<Agency>; onC
   const [f, setF] = useState<any>({
     name: agency.name || "", url: agency.url || "https://admin.livegirl.me",
     account: "", password: "", aemail: "", apassword: "", tfa_required: agency.tfa_required || false,
+    withdraw_account_name: agency.withdraw_account_name || "", withdraw_password: "",
+    withdraw_info_domain: agency.withdraw_info_domain || "", withdraw_info_port: agency.withdraw_info_port || "",
+    withdraw_domain: agency.withdraw_domain || "", withdraw_port: agency.withdraw_port || "",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -116,9 +119,15 @@ function AgencyForm({ agency, onClose, onSaved }: { agency: Partial<Agency>; onC
   async function save() {
     setBusy(true); setError("");
     try {
+      const payload: any = {
+        ...f,
+        withdraw_info_port: f.withdraw_info_port === "" ? 0 : Number(f.withdraw_info_port),
+        withdraw_port: f.withdraw_port === "" ? 0 : Number(f.withdraw_port),
+      };
+      if (!isNew && !payload.withdraw_password) delete payload.withdraw_password;
       let saved: Agency;
-      if (isNew) saved = await api.post<Agency>("/agencies", f);
-      else saved = await api.put<Agency>(`/agencies/${agency.id}`, f);
+      if (isNew) saved = await api.post<Agency>("/agencies", payload);
+      else saved = await api.put<Agency>(`/agencies/${agency.id}`, payload);
       
       const res = await api.post<{ status: string }>(`/agencies/${saved.id}/login`);
       if (res.status === "need_tfa") { setTfa({ agencyId: saved.id }); setBusy(false); return; }
@@ -170,6 +179,21 @@ function AgencyForm({ agency, onClose, onSaved }: { agency: Partial<Agency>; onC
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={f.tfa_required} onChange={(e) => up("tfa_required", e.target.checked)} /> Требуется 2FA (Google Authenticator)
           </label>
+          <div className="pt-2 border-t border-line">
+            <div className="text-sm font-semibold mb-1">Вывод средств</div>
+            <p className="text-xs text-slate-500 mb-3">
+              Реквизиты отдельного аккаунта на сервере мира Halo Live — подсматриваются один раз
+              в реальном запросе на вывод (DevTools → Network) и вводятся сюда.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div><label className="label">Имя аккаунта (accountName)</label><input className="input" value={f.withdraw_account_name} onChange={(e) => up("withdraw_account_name", e.target.value)} placeholder="TosAgency-Ukraine" /></div>
+              <div><label className="label">Пароль</label><input className="input" type="password" value={f.withdraw_password} onChange={(e) => up("withdraw_password", e.target.value)} placeholder={isNew ? "" : "оставьте пустым, чтобы не менять"} /></div>
+              <div><label className="label">Домен реквизитов (GetAgentWithdrawInfo)</label><input className="input" value={f.withdraw_info_domain} onChange={(e) => up("withdraw_info_domain", e.target.value)} placeholder="v.halolive.online" /></div>
+              <div><label className="label">Порт реквизитов</label><input className="input" value={f.withdraw_info_port} onChange={(e) => up("withdraw_info_port", e.target.value.replace(/\D/g, ""))} placeholder="9002" /></div>
+              <div><label className="label">Домен вывода (WithdrawByAgent)</label><input className="input" value={f.withdraw_domain} onChange={(e) => up("withdraw_domain", e.target.value)} placeholder="v.dragongirl.club" /></div>
+              <div><label className="label">Порт вывода</label><input className="input" value={f.withdraw_port} onChange={(e) => up("withdraw_port", e.target.value.replace(/\D/g, ""))} placeholder="9006" /></div>
+            </div>
+          </div>
           {error && <div className="text-sm text-rose-400">{error}</div>}
           <div className="flex gap-3 pt-2">
             {!isNew && <button className="btn-danger" onClick={remove} disabled={busy}><IconTrash className="w-4 h-4" /> Удалить</button>}

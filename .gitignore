@@ -4,5 +4,14 @@
 *.db
 handlers/__pycache__
 .claude/
-# handoff-документ с секретами — не коммитить
+# handoff-документы с секретами (пароли серверов и БД) — не коммитить
 информация.md
+BRIEFING_withdraw_problem_v2.md
+
+# записи экрана и прочие крупные бинарники
+*.mp4
+*.mov
+
+*.bak
+.inputrc
+.zshrc

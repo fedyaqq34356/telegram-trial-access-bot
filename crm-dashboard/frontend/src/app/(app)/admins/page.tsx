@@ -20,6 +20,7 @@ export default function AdminsPage() {
     const parts: string[] = ["Просмотр"];
     if (u.accesses.some((a) => a.can_change_ratio)) parts.push("Изменение %");
     if (u.accesses.some((a) => a.can_split)) parts.push("Split");
+    if (u.accesses.some((a) => a.can_withdraw)) parts.push("Вывод средств");
     if (u.can_manage_users) parts.push("Управление польз.");
     if (u.can_view_traffic) parts.push("Статистика сайта");
     return parts.join(", ");
@@ -84,9 +85,9 @@ function UserForm({ user, agencies, isSuperadmin, onClose, onSaved }: {
     can_view_traffic: user?.can_view_traffic || false,
     is_active: user?.is_active ?? true,
   });
-  const [access, setAccess] = useState<Record<number, { can_view: boolean; can_change_ratio: boolean; can_split: boolean }>>(() => {
+  const [access, setAccess] = useState<Record<number, { can_view: boolean; can_change_ratio: boolean; can_split: boolean; can_withdraw: boolean }>>(() => {
     const m: any = {};
-    user?.accesses.forEach((a) => (m[a.agency_id] = { can_view: a.can_view, can_change_ratio: a.can_change_ratio, can_split: a.can_split }));
+    user?.accesses.forEach((a) => (m[a.agency_id] = { can_view: a.can_view, can_change_ratio: a.can_change_ratio, can_split: a.can_split, can_withdraw: a.can_withdraw }));
     return m;
   });
   const [busy, setBusy] = useState(false);
@@ -94,7 +95,7 @@ function UserForm({ user, agencies, isSuperadmin, onClose, onSaved }: {
 
   const up = (k: string, v: any) => setF((s: any) => ({ ...s, [k]: v }));
   function toggleAgency(id: number) {
-    setAccess((s) => { const n = { ...s }; if (n[id]) delete n[id]; else n[id] = { can_view: true, can_change_ratio: false, can_split: false }; return n; });
+    setAccess((s) => { const n = { ...s }; if (n[id]) delete n[id]; else n[id] = { can_view: true, can_change_ratio: false, can_split: false, can_withdraw: false }; return n; });
   }
   function setPerm(id: number, perm: string, v: boolean) {
     setAccess((s) => ({ ...s, [id]: { ...s[id], [perm]: v } }));
@@ -150,6 +151,7 @@ function UserForm({ user, agencies, isSuperadmin, onClose, onSaved }: {
                       <div className="flex flex-wrap gap-4 mt-2 ml-6 text-xs text-slate-400">
                         <label className="flex items-center gap-1.5"><input type="checkbox" checked={access[a.id].can_change_ratio} onChange={(e) => setPerm(a.id, "can_change_ratio", e.target.checked)} /> Изменение %</label>
                         <label className="flex items-center gap-1.5"><input type="checkbox" checked={access[a.id].can_split} onChange={(e) => setPerm(a.id, "can_split", e.target.checked)} /> Запуск Split</label>
+                        <label className="flex items-center gap-1.5"><input type="checkbox" checked={access[a.id].can_withdraw} onChange={(e) => setPerm(a.id, "can_withdraw", e.target.checked)} /> Вывод средств</label>
                       </div>
                     )}
                   </div>

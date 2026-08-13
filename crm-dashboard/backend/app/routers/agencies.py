@@ -28,6 +28,17 @@ def _to_out(db: Session, agency: Agency, user: User) -> AgencyOut:
         cooldown_remaining_seconds=agency_cooldown_remaining(agency),
         can_change_ratio=can_perform(db, user, agency.id, "can_change_ratio"),
         can_split=can_perform(db, user, agency.id, "can_split"),
+        can_withdraw=can_perform(db, user, agency.id, "can_withdraw"),
+        withdraw_configured=bool(
+            agency.withdraw_account_name and agency.withdraw_password
+            and agency.withdraw_domain and agency.withdraw_port
+            and agency.withdraw_info_domain and agency.withdraw_info_port
+        ),
+        withdraw_account_name=agency.withdraw_account_name,
+        withdraw_info_domain=agency.withdraw_info_domain,
+        withdraw_info_port=agency.withdraw_info_port,
+        withdraw_domain=agency.withdraw_domain,
+        withdraw_port=agency.withdraw_port,
     )
 
 @router.get("", response_model=list[AgencyOut])

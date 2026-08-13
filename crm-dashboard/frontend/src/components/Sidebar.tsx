@@ -5,13 +5,13 @@ import useSWR from "swr";
 import { useAuth } from "@/lib/auth";
 import { fetcher } from "@/lib/api";
 import {
-  IconDashboard, IconUsers, IconRisk, IconAgency, IconSplit,
+  IconDashboard, IconUsers, IconRisk, IconAgency, IconSplit, IconWallet,
   IconAdmins, IconLogs, IconSettings, IconLogout, IconCrown, IconInbox, IconGlobe, IconGraduation, IconChart,
 } from "./icons";
 import { Avatar } from "./ui";
 import type { Paged, Host } from "@/lib/types";
 
-const SECTIONS: { title: string; items: { href: string; label: string; icon: typeof IconDashboard; badge?: string; manage?: boolean; perm?: "traffic" }[] }[] = [
+const SECTIONS: { title: string; items: { href: string; label: string; icon: typeof IconDashboard; badge?: string; manage?: boolean; perm?: "traffic" | "withdraw" }[] }[] = [
   {
     title: "Сайт-визитка",
     items: [
@@ -29,6 +29,7 @@ const SECTIONS: { title: string; items: { href: string; label: string; icon: typ
       { href: "/risk", label: "Зона риска", icon: IconRisk, badge: "risk" },
       { href: "/agencies", label: "Агентства", icon: IconAgency },
       { href: "/split", label: "Split", icon: IconSplit },
+      { href: "/withdraw", label: "Вывод средств", icon: IconWallet, perm: "withdraw" },
     ],
   },
   {
@@ -62,7 +63,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <nav className="flex-1 px-3 space-y-4 overflow-y-auto pb-4">
         {SECTIONS.map((section) => {
           const items = section.items.filter((item) =>
-            !(item.manage && !me?.can_manage_users) && !(item.perm === "traffic" && !me?.can_view_traffic)
+            !(item.manage && !me?.can_manage_users)
+            && !(item.perm === "traffic" && !me?.can_view_traffic)
           );
           if (items.length === 0) return null;
           return (

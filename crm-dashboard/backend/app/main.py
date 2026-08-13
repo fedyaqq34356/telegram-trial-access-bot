@@ -22,6 +22,7 @@ from .routers import (
     sync,
     traffic,
     users,
+    withdraw,
 )
 from .security import hash_password
 from .services import app_settings, scheduler
@@ -95,7 +96,7 @@ app.add_middleware(
 )
 
 for r in (auth, agencies, hosts, dashboard, risk, split, users, logs, settings_router, sync,
-          public, applications, site_content, traffic):
+          public, applications, site_content, traffic, withdraw):
     app.include_router(r.router, prefix="/api")
 
 app.include_router(applications.internal_router, prefix="/api")

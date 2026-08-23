@@ -219,6 +219,10 @@ function AgencyForm({ agency, onClose, onSaved }: { agency: Partial<Agency>; onC
                        onChange={(e) => { const f = e.target.files?.[0]; if (f) importHar(f); e.target.value = ""; }} />
               </label>
               {harOk && <span className="text-xs text-emerald-400">{harOk}</span>}
+              <a href="/panel/har-guide" target="_blank" rel="noreferrer"
+                 className="text-xs text-brand-300 hover:text-brand-200 underline underline-offset-2 ml-auto">
+                Как снять HAR?
+              </a>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div><label className="label">Имя аккаунта (accountName)</label><input className="input" value={f.withdraw_account_name} onChange={(e) => up("withdraw_account_name", e.target.value)} placeholder="TosAgency-Ukraine" /></div>

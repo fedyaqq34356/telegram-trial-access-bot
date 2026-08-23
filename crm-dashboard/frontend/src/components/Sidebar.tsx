@@ -30,6 +30,7 @@ const SECTIONS: { title: string; items: { href: string; label: string; icon: typ
       { href: "/agencies", label: "Агентства", icon: IconAgency },
       { href: "/split", label: "Split", icon: IconSplit },
       { href: "/withdraw", label: "Вывод средств", icon: IconWallet, perm: "withdraw" },
+      { href: "/har-guide", label: "Как снять HAR", icon: IconGraduation, manage: true },
     ],
   },
   {

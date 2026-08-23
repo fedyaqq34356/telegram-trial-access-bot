@@ -12,6 +12,9 @@ BRIEFING_withdraw_problem_v2.md
 *.mp4
 *.mov
 
+# HAR-файлы — содержат пароли/токены вывода
+*.har
+
 *.bak
 .inputrc
 .zshrc

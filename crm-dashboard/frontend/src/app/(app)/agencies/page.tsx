@@ -105,6 +105,7 @@ function AgencyForm({ agency, onClose, onSaved }: { agency: Partial<Agency>; onC
   const [f, setF] = useState<any>({
     name: agency.name || "", url: agency.url || "https://admin.livegirl.me",
     account: "", password: "", aemail: "", apassword: "", tfa_required: agency.tfa_required || false,
+    trusted_device_cookie: "",
     withdraw_account_name: agency.withdraw_account_name || "", withdraw_password: "",
     withdraw_info_domain: agency.withdraw_info_domain || "", withdraw_info_port: agency.withdraw_info_port || "",
     withdraw_domain: agency.withdraw_domain || "", withdraw_port: agency.withdraw_port || "",
@@ -113,8 +114,32 @@ function AgencyForm({ agency, onClose, onSaved }: { agency: Partial<Agency>; onC
   const [error, setError] = useState("");
   const [tfa, setTfa] = useState<{ agencyId: number } | null>(null);
   const [code, setCode] = useState("");
+  const [harBusy, setHarBusy] = useState(false);
+  const [harOk, setHarOk] = useState("");
 
   const up = (k: string, v: any) => setF((s: any) => ({ ...s, [k]: v }));
+
+  async function importHar(file: File) {
+    setHarBusy(true); setError(""); setHarOk("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await api.upload<any>("/agencies/parse-har", fd);
+      setF((s: any) => ({
+        ...s,
+        withdraw_account_name: r.withdraw_account_name || s.withdraw_account_name,
+        withdraw_password: r.withdraw_password || s.withdraw_password,
+        withdraw_info_domain: r.withdraw_info_domain || s.withdraw_info_domain,
+        withdraw_info_port: r.withdraw_info_port || s.withdraw_info_port,
+        withdraw_domain: r.withdraw_domain || s.withdraw_domain,
+        withdraw_port: r.withdraw_port || s.withdraw_port,
+        trusted_device_cookie: r.trusted_device_cookie || s.trusted_device_cookie,
+      }));
+      setHarOk(`Реквизиты извлечены (${r.withdraw_account_name}). Проверьте и нажмите «Сохранить».`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Не удалось разобрать HAR");
+    } finally { setHarBusy(false); }
+  }
 
   async function save() {
     setBusy(true); setError("");
@@ -125,6 +150,7 @@ function AgencyForm({ agency, onClose, onSaved }: { agency: Partial<Agency>; onC
         withdraw_port: f.withdraw_port === "" ? 0 : Number(f.withdraw_port),
       };
       if (!isNew && !payload.withdraw_password) delete payload.withdraw_password;
+      if (!payload.trusted_device_cookie) delete payload.trusted_device_cookie;
       let saved: Agency;
       if (isNew) saved = await api.post<Agency>("/agencies", payload);
       else saved = await api.put<Agency>(`/agencies/${agency.id}`, payload);
@@ -182,9 +208,18 @@ function AgencyForm({ agency, onClose, onSaved }: { agency: Partial<Agency>; onC
           <div className="pt-2 border-t border-line">
             <div className="text-sm font-semibold mb-1">Вывод средств</div>
             <p className="text-xs text-slate-500 mb-3">
-              Реквизиты отдельного аккаунта на сервере мира Halo Live — подсматриваются один раз
-              в реальном запросе на вывод (DevTools → Network) и вводятся сюда.
+              Реквизиты аккаунта на сервере мира Halo Live. Проще всего: один раз сделать вывод
+              через lib.iwlive.club с открытым DevTools → Network → Export HAR, и загрузить файл
+              сюда — поля заполнятся сами. Либо ввести вручную.
             </p>
+            <div className="mb-3 flex items-center gap-3 flex-wrap">
+              <label className={`btn-ghost cursor-pointer ${harBusy ? "opacity-60 pointer-events-none" : ""}`}>
+                {harBusy ? <Spinner className="w-4 h-4" /> : null} Загрузить HAR
+                <input type="file" accept=".har,application/json" className="hidden"
+                       onChange={(e) => { const f = e.target.files?.[0]; if (f) importHar(f); e.target.value = ""; }} />
+              </label>
+              {harOk && <span className="text-xs text-emerald-400">{harOk}</span>}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div><label className="label">Имя аккаунта (accountName)</label><input className="input" value={f.withdraw_account_name} onChange={(e) => up("withdraw_account_name", e.target.value)} placeholder="TosAgency-Ukraine" /></div>
               <div><label className="label">Пароль</label><input className="input" type="password" value={f.withdraw_password} onChange={(e) => up("withdraw_password", e.target.value)} placeholder={isNew ? "" : "оставьте пустым, чтобы не менять"} /></div>

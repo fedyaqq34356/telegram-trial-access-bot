@@ -67,6 +67,7 @@ class AgencyCreate(BaseModel):
     aemail: str = ""
     apassword: str = ""
     tfa_required: bool = False
+    trusted_device_cookie: str = ""
     withdraw_account_name: str = ""
     withdraw_password: str = ""
     withdraw_info_domain: str = ""
@@ -83,6 +84,7 @@ class AgencyUpdate(BaseModel):
     apassword: str | None = None
     tfa_required: bool | None = None
     is_active: bool | None = None
+    trusted_device_cookie: str | None = None
     withdraw_account_name: str | None = None
     withdraw_password: str | None = None
     withdraw_info_domain: str | None = None

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -10,9 +10,12 @@ from ..deps import (
 )
 from ..models import Agency, User
 from ..schemas import AgencyCreate, AgencyOut, AgencyUpdate, TfaSubmit
+from ..services.har_import import HarImportError, parse_har
 from ..services.sessions import sessions
 from ..services.split_service import agency_cooldown_remaining
 from ..services.sync_service import ensure_session
+
+MAX_HAR_BYTES = 40 * 1024 * 1024
 
 router = APIRouter(prefix="/agencies", tags=["agencies"])
 
@@ -83,6 +86,18 @@ def delete_agency(agency_id: int, user: User = Depends(require_superadmin), db: 
     db.delete(agency)
     db.commit()
     return {"ok": True}
+
+@router.post("/parse-har")
+async def parse_har_upload(file: UploadFile = File(...), user: User = Depends(require_superadmin)):
+    """Разбирает загруженный HAR и возвращает найденные реквизиты вывода для
+    подстановки в форму агентства. В БД ничего не пишет — сохранение обычным PUT/POST."""
+    raw = await file.read(MAX_HAR_BYTES + 1)
+    if len(raw) > MAX_HAR_BYTES:
+        raise HTTPException(status_code=413, detail="HAR-файл слишком большой (лимит 40 МБ)")
+    try:
+        return parse_har(raw)
+    except HarImportError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 @router.post("/{agency_id}/login")
 def login_agency(agency_id: int, user: User = Depends(require_superadmin), db: Session = Depends(get_db)):

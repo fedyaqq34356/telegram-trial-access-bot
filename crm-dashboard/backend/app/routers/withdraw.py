@@ -73,6 +73,7 @@ def _serialize(op: WithdrawOperation) -> dict:
         "agency_name": op.agency_name,
         "network": op.network,
         "address": op.address,
+        "amount_usd": op.amount_usd,
         "status": op.status,
         "message": op.message,
         "created_at": op.created_at.isoformat() if op.created_at else None,
@@ -115,7 +116,7 @@ def _do_preview(db: Session, agency: Agency) -> dict:
         balance["usd"], egress_ip(),
     )
 
-    sessions.set_pending_withdraw(agency.id, token, info["address"], info["network"])
+    sessions.set_pending_withdraw(agency.id, token, info["address"], info["network"], balance["usd"])
     return {
         "status": "ready",
         "address": info["address"],
@@ -161,6 +162,7 @@ def confirm(agency_id: int, user: User = Depends(get_current_user), db: Session 
         agency_name=agency.name,
         network=pending["network"],
         address=pending["address"],
+        amount_usd=pending.get("amount_usd", 0.0),
         status="running",
     )
     db.add(op)
@@ -220,6 +222,7 @@ def client_request(agency_id: int, request: Request, user: User = Depends(get_cu
         agency_name=agency.name,
         network=pending["network"],
         address=pending["address"],
+        amount_usd=pending.get("amount_usd", 0.0),
         status="running",
     )
     db.add(op)

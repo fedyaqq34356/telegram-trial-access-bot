@@ -30,11 +30,13 @@ class SessionManager:
     def drop_pending(self, agency_id: int) -> None:
         self._pending.pop(agency_id, None)
 
-    def set_pending_withdraw(self, agency_id: int, token: str, address: str, network: str) -> None:
+    def set_pending_withdraw(self, agency_id: int, token: str, address: str, network: str,
+                             amount_usd: float = 0.0) -> None:
         self._pending_withdraw[agency_id] = {
             "token": token,
             "address": address,
             "network": network,
+            "amount_usd": amount_usd,
             "expires_at": time.time() + WITHDRAW_TOKEN_TTL_SECONDS,
         }
 

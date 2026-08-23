@@ -6,7 +6,7 @@ import { useAgencies } from "@/lib/agency";
 import { PageHeader } from "@/components/PageHeader";
 import { Modal, StatusBadge, Spinner, EmptyRow } from "@/components/ui";
 import { IconWallet, IconCheck } from "@/components/icons";
-import { dt } from "@/lib/format";
+import { dt, usd } from "@/lib/format";
 import type { Paged, WithdrawOp } from "@/lib/types";
 
 type Step = "idle" | "tfa" | "confirm" | "done";
@@ -23,31 +23,11 @@ export default function WithdrawPage() {
   const [preview, setPreview] = useState<{ address: string; network: string; balanceUsd?: number } | null>(null);
   const [insufficient, setInsufficient] = useState<{ balance: number; min: number } | null>(null);
   const [result, setResult] = useState<WithdrawOp | null>(null);
-  const [diagBusy, setDiagBusy] = useState(false);
-  const [diagResults, setDiagResults] = useState<any[] | null>(null);
 
   const { data: history, mutate } = useSWR<Paged<WithdrawOp>>(
     `/withdraw/history${qs({ agency_id: agencyId ?? undefined, page: 1, limit: 10 })}`,
     fetcher
   );
-
-  async function runDiagnose() {
-    if (!agencyId) return;
-    setDiagBusy(true); setDiagResults(null); setError("");
-    try {
-      const res = await api.post<any>(`/withdraw/${agencyId}/diagnose`, {});
-      if (res.status === "need_tfa") {
-        setError("Нужен код 2FA — сначала выполните обычный «Проверить и подготовить вывод», введите код, затем повторите диагностику.");
-        return;
-      }
-      setDiagResults(res.results || []);
-      if (res.results?.some((r: any) => r.ok)) mutate();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Ошибка диагностики");
-    } finally {
-      setDiagBusy(false);
-    }
-  }
 
   function reset() {
     setStep("idle"); setError(""); setCode(""); setPreview(null); setInsufficient(null); setResult(null);
@@ -183,33 +163,10 @@ export default function WithdrawPage() {
                   <button className="btn-primary" disabled={busy} onClick={startPreview}>
                     {busy ? <Spinner className="w-4 h-4" /> : <IconWallet className="w-4 h-4" />} Проверить и подготовить вывод
                   </button>
-                  <button className="btn-ghost ml-2" disabled={diagBusy} onClick={runDiagnose}>
-                    {diagBusy ? <Spinner className="w-4 h-4" /> : null} Диагностика (перебрать варианты)
-                  </button>
                   <p className="text-xs text-slate-500 mt-2">
                     Деньги ещё не списываются — сначала покажем адрес и сеть для подтверждения.
                     Минимальная сумма для вывода у Halo Live — $100.
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    «Диагностика» перебирает несколько форм запроса подряд (каждая — реальная попытка
-                    вывода со свежим токеном) и останавливается на первой, которая сработает.
-                  </p>
-                </div>
-              )}
-
-              {diagResults && (
-                <div className="mt-4 space-y-2">
-                  {diagResults.map((r: any, i: number) => (
-                    <div key={i} className={`text-sm rounded-lg px-3 py-2 border ${r.ok ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"}`}>
-                      <span className="font-mono">{r.variant}</span>: {r.ok ? "✅ УСПЕХ" : `❌ retCode ${r.retCode ?? "—"} — ${r.message || r.error || ""}`}
-                    </div>
-                  ))}
-                  {diagResults.every((r: any) => !r.ok) && (
-                    <p className="text-xs text-amber-300/80">
-                      Ни один вариант не сработал — значит, дело не в форме запроса. Полные детали каждой
-                      попытки — в логах бэкенда (journalctl).
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -238,7 +195,10 @@ export default function WithdrawPage() {
                 <div className="mt-4 space-y-3">
                   <div className={`rounded-xl border px-4 py-3 ${result.status === "ok" ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"}`}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold">{result.status === "ok" ? "Вывод выполнен" : "Ошибка вывода"}</span>
+                      <span className="text-sm font-semibold">
+                        {result.status === "ok" ? "Вывод выполнен" : "Ошибка вывода"}
+                        {result.amount_usd ? ` — ${usd(result.amount_usd)}` : ""}
+                      </span>
                       <StatusBadge status={result.status} />
                     </div>
                     {result.message && <div className="text-sm text-slate-400">{result.message}</div>}
@@ -252,22 +212,23 @@ export default function WithdrawPage() {
           <div className="mt-8">
             <h3 className="text-sm font-semibold text-slate-400 mb-3">История выводов</h3>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px]">
+              <table className="w-full min-w-[640px]">
                 <thead><tr className="border-b border-line">
-                  <th className="th">Дата</th><th className="th">Агентство</th><th className="th">Адрес</th>
-                  <th className="th">Сеть</th><th className="th">Статус</th>
+                  <th className="th">Дата</th><th className="th">Агентство</th><th className="th">Сумма</th>
+                  <th className="th">Адрес</th><th className="th">Сеть</th><th className="th">Статус</th>
                 </tr></thead>
                 <tbody>
                   {history?.items?.map((o) => (
                     <tr key={o.id} className="border-b border-line/60">
                       <td className="td text-slate-400">{dt(o.created_at)}</td>
                       <td className="td">{o.agency_name}</td>
+                      <td className="td font-semibold tabular-nums">{o.amount_usd ? usd(o.amount_usd) : "—"}</td>
                       <td className="td font-mono text-xs">{o.address}</td>
                       <td className="td">{o.network}</td>
                       <td className="td"><StatusBadge status={o.status} /></td>
                     </tr>
                   ))}
-                  {!history?.items?.length && <EmptyRow cols={5} text="Выводов ещё не было" />}
+                  {!history?.items?.length && <EmptyRow cols={6} text="Выводов ещё не было" />}
                 </tbody>
               </table>
             </div>

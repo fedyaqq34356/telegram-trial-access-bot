@@ -35,6 +35,7 @@ export interface WithdrawOp {
   agency_name: string;
   network: string;
   address: string;
+  amount_usd: number;
   status: string;
   message: string;
   created_at: string | null;

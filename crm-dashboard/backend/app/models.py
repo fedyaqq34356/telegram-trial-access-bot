@@ -169,6 +169,7 @@ class WithdrawOperation(Base):
 
     network: Mapped[str] = mapped_column(String(32), default="")
     address: Mapped[str] = mapped_column(String(255), default="")
+    amount_usd: Mapped[float] = mapped_column(Float, default=0.0)
 
     status: Mapped[str] = mapped_column(String(32), default="pending")
     message: Mapped[str] = mapped_column(Text, default="")

@@ -122,7 +122,7 @@ export const en: Dict = {
   },
   reviews: {
     title: "Reviews from our girls",
-    subtitle: "Real messages from girls already working with us. Names and photos are hidden for safety.",
+    subtitle: "Real messages from girls already working with us.",
     verified: "Verified review",
     cardFrom: "Girl from",
     empty: "Reviews coming soon.",
